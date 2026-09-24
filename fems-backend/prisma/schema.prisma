@@ -1,0 +1,1871 @@
+// ============================================================================
+//  FEMS — Forest Exploitation Management System
+//  Prisma schema (MySQL / MariaDB)
+// ============================================================================
+//  * Connection URLs live in `prisma.config.ts` (Prisma 7+); never in this file.
+//  * MySQL 5.6 has no native JSON column, therefore JSON payloads are stored as
+//    `@db.LongText` in fields suffixed `Json` and (de)serialised by the
+//    application layer (see docs/database.md).
+//  * GIS: points are validated DECIMAL(10,7) lat/lng pairs and area boundaries
+//    are GeoJSON (LongText) so the schema stays portable across MySQL 5.6/8.x.
+//    See docs/database.md "GIS strategy" for the spatial-column upgrade path.
+//  * Soft deletion (`deletedAt`) is used for records that must stay auditable.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================================
+//  ENUMS
+// ============================================================================
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum CompanyType {
+  LOGGING_COMPANY
+  TIMBER_TRADER
+  SAWMILL
+  ARTISANAL
+  COOPERATIVE
+  WOOD_PROCESSING
+  OTHER
+}
+
+enum CompanyStatus {
+  PENDING
+  VERIFIED
+  SUSPENDED
+  REJECTED
+}
+
+enum DocumentType {
+  COMPANY_REGISTRATION
+  TAX_CLEARANCE
+  ENVIRONMENTAL_IMPACT_ASSESSMENT
+  MANAGEMENT_PLAN
+  LAND_TITLE
+  IDENTITY_DOCUMENT
+  EXPLOITATION_LICENCE
+  TRANSPORT_PERMIT
+  OTHER
+}
+
+enum ForestStatus {
+  ACTIVE
+  UNDER_MANAGEMENT
+  DEGRADED
+  PROTECTED
+  CLOSED
+}
+
+enum ForestType {
+  PRODUCTION
+  PROTECTION
+  COMMUNITY
+  REGENERATION
+  PLANTATION
+  MIXED
+}
+
+enum ZoneType {
+  PRODUCTION
+  PROTECTION
+  CONSERVATION
+  COMMUNITY
+  REGENERATION
+  BUFFER
+  SACRED
+}
+
+enum ZoneStatus {
+  ACTIVE
+  RESTRICTED
+  EXHAUSTED
+  CLOSED
+}
+
+enum ProtectedAreaType {
+  NATIONAL_PARK
+  WILDLIFE_RESERVE
+  FOREST_RESERVE
+  COMMUNITY_FOREST
+  BIOSPHERE_RESERVE
+  SANCTUARY
+  RAMSAR_SITE
+}
+
+enum ProtectedAreaStatus {
+  ACTIVE
+  UNDER_REVIEW
+  DEGRADED
+  CLOSED
+}
+
+enum TreeHealthStatus {
+  HEALTHY
+  DISEASED
+  DAMAGED
+  DEAD
+  LOGGED
+}
+
+enum PermitType {
+  EXPLOITATION
+  TRANSPORT
+  PROCESSING
+  EXPORT
+  ARTISANAL
+  RECONNAISSANCE
+  COMMUNITY_FOREST
+}
+
+enum PermitStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUIRED
+  REJECTED
+  APPROVED
+  PAYMENT_PENDING
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+  CANCELLED
+}
+
+enum PermitPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ActivityType {
+  TIMBER_HARVEST
+  LOG_TRANSPORT
+  SITE_CLEARING
+  PLANTING
+  FOREST_SURVEY
+  ROAD_CONSTRUCTION
+  MAINTENANCE
+  SALVAGE_LOGGING
+}
+
+enum ActivityStatus {
+  PLANNED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  SUSPENDED
+  CANCELLED
+}
+
+enum GpsSource {
+  DEVICE_GPS
+  MANUAL_CORRECTION
+  SYSTEM_RECORDED
+  SEED_DEMO
+}
+
+enum SyncStatus {
+  SYNCED
+  PENDING_SYNC
+  FAILED
+}
+
+enum EquipmentCategory {
+  HARVESTER
+  CHAINSAW
+  LOGGING_TRUCK
+  TRACTOR
+  SKIDDER
+  LOG_LOADER
+  BULLDOZER
+  DRONE
+  SURVEY_EQUIPMENT
+  OTHER
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MOBILE_MONEY_MTN
+  MOBILE_MONEY_ORANGE
+  MOBILE_MONEY_AIRTEL
+  CARD
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentPurpose {
+  PERMIT_FEE
+  ROYALTY
+  ANNUAL_TAX
+  PENALTY
+  REPLANTING_BOND
+  OTHER
+}
+
+enum PaymentProvider {
+  CAMPAY
+  SIMULATOR
+}
+
+enum InspectionType {
+  ROUTINE
+  COMPLIANCE
+  ENVIRONMENTAL
+  POST_ACTIVITY
+  INCIDENT
+  VERIFICATION
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  SUBMITTED
+  REVIEWED
+  CLOSED
+  CANCELLED
+}
+
+enum InspectionOutcome {
+  COMPLIANT
+  MINOR_NON_COMPLIANCE
+  MAJOR_NON_COMPLIANCE
+  CRITICAL_NON_COMPLIANCE
+}
+
+enum ChecklistResult {
+  PASS
+  FAIL
+  NOT_APPLICABLE
+}
+
+enum EvidenceType {
+  PHOTO
+  VIDEO
+  DOCUMENT
+  AUDIO
+  SIGNATURE
+}
+
+enum EvidenceSource {
+  DEVICE_CAMERA
+  DEVICE_GALLERY
+  FILE_UPLOAD
+  SYSTEM_GENERATED
+}
+
+enum FieldSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum ObservationCategory {
+  TREE_CONDITION
+  WILDLIFE
+  VEGETATION_COVER
+  SOIL
+  WATER_BODY
+  ENCROACHMENT
+  ILLEGAL_LOGGING
+  INFRASTRUCTURE
+  FIRE_DAMAGE
+  WEATHER
+  INCIDENT
+  OTHER
+}
+
+enum ViolationSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ViolationStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  CONFIRMED
+  RESOLVED
+  DISMISSED
+  ESCALATED
+}
+
+enum ReportType {
+  PERMITS
+  EXPLOITATION_ACTIVITIES
+  PAYMENTS
+  INSPECTIONS
+  ENVIRONMENTAL_VIOLATIONS
+  FOREST_ACTIVITIES
+  AI_ALERTS
+  COMPLIANCE_SUMMARY
+}
+
+enum ReportFormat {
+  JSON
+  CSV
+  PDF
+}
+
+enum ReportStatus {
+  DRAFT
+  GENERATING
+  READY
+  FAILED
+}
+
+enum NotificationType {
+  PERMIT_SUBMITTED
+  PERMIT_APPROVED
+  PERMIT_REJECTED
+  PERMIT_REVISION_REQUIRED
+  PERMIT_ACTIVATED
+  PERMIT_SUSPENDED
+  PERMIT_REVOKED
+  PERMIT_EXPIRING
+  PERMIT_EXPIRED
+  PAYMENT_INITIATED
+  PAYMENT_SUCCESSFUL
+  PAYMENT_FAILED
+  INSPECTION_ASSIGNED
+  INSPECTION_COMPLETED
+  INSPECTION_SUBMITTED
+  VIOLATION_RECORDED
+  VIOLATION_RESOLVED
+  AI_ALERT_GENERATED
+  AI_ALERT_ASSIGNED
+  AI_ALERT_RESOLVED
+  ACTIVITY_SCHEDULED
+  ACTIVITY_SUBMITTED
+  OBSERVATION_RECORDED
+  REPORT_READY
+  COMPANY_VERIFIED
+  ACCOUNT_ACTIVATED
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum AlertType {
+  DEFORESTATION_RISK
+  OVER_HARVESTING
+  PERMIT_VIOLATION
+  UNAUTHORIZED_ACTIVITY
+  ENVIRONMENTAL_HAZARD
+  PROTECTED_AREA_ENCROACHMENT
+  OPERATIONAL_ANOMALY
+  DOCUMENT_ANOMALY
+  PAYMENT_ANOMALY
+  FIELD_REPORT_ANOMALY
+}
+
+enum AlertStatus {
+  NEW
+  REVIEWING
+  CONFIRMED
+  DISMISSED
+  RESOLVED
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum AiProvider {
+  GEMINI
+  LOCAL_RULE_ENGINE
+}
+
+enum AiAnalysisType {
+  RISK_ASSESSMENT
+  ANOMALY_DETECTION
+  OBSERVATION_ANALYSIS
+  INSPECTION_SUMMARY
+  COMPLIANCE_SUMMARY
+  PERMIT_REVIEW_ASSIST
+  EXPLOITATION_PATTERN
+}
+
+enum AiAnalysisStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  ERROR
+}
+
+enum GisFeatureType {
+  FOREST
+  FOREST_ZONE
+  PROTECTED_AREA
+  EXPLOITATION_ACTIVITY
+  INSPECTION
+  FIELD_OBSERVATION
+  AI_ALERT
+  ENVIRONMENTAL_VIOLATION
+  COMPANY_SITE
+  USER_CHECKIN
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET
+  TOKEN_REFRESH
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  PERMIT_STATUS_CHANGE
+  PAYMENT_INITIATED
+  PAYMENT_VERIFIED
+  PAYMENT_FAILED
+  FILE_UPLOAD
+  AI_ANALYSIS
+  AI_ALERT_REVIEW
+  ASSISTANT_QUERY
+  EXPORT
+  SETTINGS_CHANGE
+  ROLE_ASSIGNED
+  ACCOUNT_STATUS_CHANGE
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum SettingCategory {
+  GENERAL
+  NOTIFICATION
+  AI
+  GIS
+  PAYMENT
+  SECURITY
+  STORAGE
+}
+
+enum SettingValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+// ============================================================================
+//  IDENTITY, ACCESS CONTROL & AUDIT
+// ============================================================================
+
+model User {
+  id                  String     @id @default(uuid()) @db.VarChar(36)
+  email               String     @unique @db.VarChar(191)
+  passwordHash        String     @db.VarChar(191)
+  firstName           String     @db.VarChar(100)
+  lastName            String     @db.VarChar(100)
+  phone               String?    @db.VarChar(32)
+  avatarUrl           String?    @db.VarChar(512)
+  jobTitle            String?    @db.VarChar(120)
+  status              UserStatus @default(PENDING_VERIFICATION)
+  isDemo              Boolean    @default(false)
+  emailVerifiedAt     DateTime?
+  phoneVerifiedAt     DateTime?
+  lastLoginAt         DateTime?
+  failedLoginCount    Int        @default(0)
+  lockedUntil         DateTime?
+  preferredLanguage   String     @default("fr") @db.VarChar(8)
+  companyId           String?    @db.VarChar(36)
+  createdById         String?    @db.VarChar(36)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
+
+  company                 Company?                 @relation("CompanyMembers", fields: [companyId], references: [id], onDelete: SetNull)
+  createdBy               User?                    @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers            User[]                   @relation("UserCreator")
+  ownedCompanies          Company[]                @relation("CompanyOwner")
+  userRoles               UserRole[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  deviceTokens            DeviceToken[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  auditLogs               AuditLog[]
+  forestsCreated          Forest[]                 @relation("ForestCreator")
+  forestsManaged          Forest[]                 @relation("ForestManager")
+  zonesCreated            ForestZone[]             @relation("ZoneCreator")
+  protectedAreasCreated   ProtectedArea[]          @relation("ProtectedAreaCreator")
+  speciesCreated          TreeSpecies[]            @relation("SpeciesCreator")
+  inventoriesRecorded     TreeInventory[]          @relation("InventoryRecorder")
+  permitsSubmitted        ExploitationPermit[]     @relation("PermitApplicant")
+  permitsReviewed         ExploitationPermit[]     @relation("PermitReviewer")
+  permitsApproved         ExploitationPermit[]     @relation("PermitApprover")
+  permitStatusChanges     PermitStatusHistory[]
+  permitDocuments         PermitDocument[]         @relation("PermitDocumentUploader")
+  activitiesCreated       ExploitationActivity[]   @relation("ActivityCreator")
+  activitiesAssigned      ExploitationActivity[]   @relation("ActivityAssignee")
+  fieldSessions           FieldSession[]
+  equipmentCreated        Equipment[]              @relation("EquipmentCreator")
+  paymentsAsPayer         Payment[]                @relation("PaymentPayer")
+  paymentsInitiated       Payment[]                @relation("PaymentInitiator")
+  paymentsVerified        Payment[]                @relation("PaymentVerifier")
+  inspectionsConducted    Inspection[]             @relation("InspectionInspector")
+  inspectionsAssigned     Inspection[]             @relation("InspectionAssigner")
+  inspectionsReviewed     Inspection[]             @relation("InspectionReviewer")
+  observationsRecorded    FieldObservation[]       @relation("ObservationObserver")
+  violationsDetected      EnvironmentalViolation[] @relation("ViolationDetector")
+  violationsResolved      EnvironmentalViolation[] @relation("ViolationResolver")
+  evidencesUploaded       Evidence[]               @relation("EvidenceUploader")
+  reportsGenerated        Report[]                 @relation("ReportGenerator")
+  aiAnalysesRequested     AIAnalysis[]             @relation("AnalysisRequester")
+  aiAnalysesReviewed      AIAnalysis[]             @relation("AnalysisReviewer")
+  aiAlertsReviewed        AIAlert[]                @relation("AlertReviewer")
+  aiConversations         AIConversation[]
+  gisLocations            GISLocation[]            @relation("LocationRecorder")
+  companiesVerified       Company[]                @relation("CompanyVerifier")
+  documentsUploaded       CompanyDocument[]        @relation("CompanyDocumentUploader")
+  documentsVerified       CompanyDocument[]        @relation("CompanyDocumentVerifier")
+  settingsUpdated         SystemSetting[]          @relation("SettingUpdater")
+  assignedUserRoles       UserRole[]               @relation("RoleAssigner")
+
+  @@index([companyId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @unique @db.VarChar(64)
+  label       String   @db.VarChar(120)
+  description String?  @db.Text
+  isSystem    Boolean  @default(true)
+  level       Int      @default(10)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([level])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  code        String   @unique @db.VarChar(96)
+  module      String   @db.VarChar(48)
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String   @db.VarChar(36)
+  permissionId String   @db.VarChar(36)
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId       String    @db.VarChar(36)
+  roleId       String    @db.VarChar(36)
+  assignedById String?   @db.VarChar(36)
+  assignedAt   DateTime  @default(now())
+  expiresAt    DateTime?
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("RoleAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedById])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  userId            String    @db.VarChar(36)
+  tokenHash         String    @unique @db.VarChar(191)
+  family            String    @db.VarChar(36)
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?   @db.VarChar(36)
+  ipAddress         String?   @db.VarChar(64)
+  userAgent         String?   @db.VarChar(255)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  userId    String    @db.VarChar(36)
+  tokenHash String    @unique @db.VarChar(191)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  userId    String    @db.VarChar(36)
+  tokenHash String    @unique @db.VarChar(191)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  userId     String   @db.VarChar(36)
+  token      String   @unique @db.VarChar(191)
+  platform   String   @db.VarChar(16)
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model AuditLog {
+  id          String        @id @default(uuid()) @db.VarChar(36)
+  actorId     String?       @db.VarChar(36)
+  actorEmail  String?       @db.VarChar(191)
+  action      AuditAction
+  severity    AuditSeverity @default(INFO)
+  entityType  String?       @db.VarChar(64)
+  entityId    String?       @db.VarChar(64)
+  description String?       @db.VarChar(500)
+  beforeJson  String?       @db.LongText
+  afterJson   String?       @db.LongText
+  ipAddress   String?       @db.VarChar(64)
+  userAgent   String?       @db.VarChar(255)
+  createdAt   DateTime      @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String           @id @default(uuid()) @db.VarChar(36)
+  key         String           @unique @db.VarChar(96)
+  value       String           @db.LongText
+  category    SettingCategory  @default(GENERAL)
+  valueType   SettingValueType @default(STRING)
+  description String?          @db.VarChar(255)
+  isSecret    Boolean          @default(false)
+  updatedById String?          @db.VarChar(36)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  updatedBy User? @relation("SettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@map("system_settings")
+}
+
+// ============================================================================
+//  COMPANIES
+// ============================================================================
+
+model Company {
+  id                 String        @id @default(uuid()) @db.VarChar(36)
+  name               String        @unique @db.VarChar(191)
+  registrationNumber String        @unique @db.VarChar(64)
+  taxNumber          String?       @unique @db.VarChar(64)
+  type               CompanyType
+  status             CompanyStatus @default(PENDING)
+  email              String        @db.VarChar(191)
+  phone              String        @db.VarChar(32)
+  alternatePhone     String?       @db.VarChar(32)
+  addressLine        String        @db.VarChar(255)
+  city               String        @db.VarChar(96)
+  region             String        @db.VarChar(96)
+  country            String        @default("Cameroun") @db.VarChar(96)
+  website            String?       @db.VarChar(191)
+  logoUrl            String?       @db.VarChar(512)
+  latitude           Decimal?      @db.Decimal(10, 7)
+  longitude          Decimal?      @db.Decimal(10, 7)
+  employeeCount      Int?
+  description        String?       @db.Text
+  verifiedAt         DateTime?
+  verifiedById       String?       @db.VarChar(36)
+  rejectionReason    String?       @db.VarChar(500)
+  ownerId            String?       @db.VarChar(36)
+  isDemo             Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  deletedAt          DateTime?
+
+  owner      User?              @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  verifiedBy User?              @relation("CompanyVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  members    User[]             @relation("CompanyMembers")
+  documents  CompanyDocument[]
+  permits    ExploitationPermit[]
+  activities ExploitationActivity[]
+  equipment  Equipment[]
+  payments   Payment[]
+  inspections Inspection[]
+  violations EnvironmentalViolation[]
+  reports    Report[]
+  aiAlerts   AIAlert[]
+  evidences  Evidence[]
+
+  @@index([status])
+  @@index([type])
+  @@index([region])
+  @@index([deletedAt])
+  @@map("companies")
+}
+
+model CompanyDocument {
+  id           String       @id @default(uuid()) @db.VarChar(36)
+  companyId    String       @db.VarChar(36)
+  type         DocumentType
+  title        String       @db.VarChar(191)
+  fileUrl      String       @db.VarChar(512)
+  fileKey      String       @db.VarChar(255)
+  mimeType     String       @db.VarChar(120)
+  sizeBytes    Int
+  checksum     String?      @db.VarChar(64)
+  isVerified   Boolean      @default(false)
+  verifiedById String?      @db.VarChar(36)
+  verifiedAt   DateTime?
+  notes        String?      @db.Text
+  expiresAt    DateTime?
+  uploadedById String       @db.VarChar(36)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("CompanyDocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  verifiedBy User?   @relation("CompanyDocumentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, type])
+  @@index([uploadedById])
+  @@index([verifiedById])
+  @@index([deletedAt])
+  @@map("company_documents")
+}
+
+// ============================================================================
+//  FOREST RESOURCE DATA
+// ============================================================================
+
+model Forest {
+  id                    String       @id @default(uuid()) @db.VarChar(36)
+  code                  String       @unique @db.VarChar(40)
+  name                  String       @db.VarChar(191)
+  description           String?      @db.Text
+  type                  ForestType
+  status                ForestStatus @default(ACTIVE)
+  region                String       @db.VarChar(96)
+  division              String?      @db.VarChar(96)
+  subdivision           String?      @db.VarChar(96)
+  totalAreaHa           Decimal      @db.Decimal(14, 2)
+  exploitableAreaHa     Decimal?     @db.Decimal(14, 2)
+  latitude              Decimal      @db.Decimal(10, 7)
+  longitude             Decimal      @db.Decimal(10, 7)
+  boundaryGeoJson       String?      @db.LongText
+  elevationM            Int?
+  annualAllowableCutM3  Decimal?     @db.Decimal(14, 2)
+  establishedAt         DateTime?
+  lastInventoriedAt     DateTime?
+  isPublic              Boolean      @default(true)
+  isDemo                Boolean      @default(false)
+  protectedAreaId       String?      @db.VarChar(36)
+  managedById           String?      @db.VarChar(36)
+  createdById           String       @db.VarChar(36)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  deletedAt             DateTime?
+
+  protectedArea ProtectedArea?         @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  managedBy     User?                  @relation("ForestManager", fields: [managedById], references: [id], onDelete: SetNull)
+  createdBy     User                   @relation("ForestCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  zones         ForestZone[]
+  inventories   TreeInventory[]
+  permits       ExploitationPermit[]
+  activities    ExploitationActivity[]
+  inspections   Inspection[]
+  observations  FieldObservation[]
+  violations    EnvironmentalViolation[]
+  aiAlerts      AIAlert[]
+  reports       Report[]
+  gisLocations  GISLocation[]
+  fieldSessions FieldSession[]
+
+  @@index([status])
+  @@index([region])
+  @@index([type])
+  @@index([protectedAreaId])
+  @@index([managedById])
+  @@index([deletedAt])
+  @@map("forests")
+}
+
+model ForestZone {
+  id                   String     @id @default(uuid()) @db.VarChar(36)
+  forestId             String     @db.VarChar(36)
+  code                 String     @db.VarChar(40)
+  name                 String     @db.VarChar(191)
+  zoneType             ZoneType
+  status               ZoneStatus @default(ACTIVE)
+  areaHa               Decimal    @db.Decimal(14, 2)
+  latitude             Decimal    @db.Decimal(10, 7)
+  longitude            Decimal    @db.Decimal(10, 7)
+  boundaryGeoJson      String?    @db.LongText
+  maxAnnualYieldM3     Decimal?   @db.Decimal(14, 2)
+  conservationPriority Int        @default(0)
+  isProtected          Boolean    @default(false)
+  description          String?    @db.Text
+  lastHarvestedAt      DateTime?
+  isDemo               Boolean    @default(false)
+  createdById          String     @db.VarChar(36)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  deletedAt            DateTime?
+
+  forest        Forest                  @relation(fields: [forestId], references: [id], onDelete: Cascade)
+  createdBy     User                    @relation("ZoneCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  inventories   TreeInventory[]
+  permits       ExploitationPermit[]
+  activities    ExploitationActivity[]
+  observations  FieldObservation[]
+  inspections   Inspection[]
+  violations    EnvironmentalViolation[]
+  aiAlerts      AIAlert[]
+  gisLocations  GISLocation[]
+  fieldSessions FieldSession[]
+
+  @@unique([forestId, code])
+  @@index([forestId])
+  @@index([zoneType])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("forest_zones")
+}
+
+model ProtectedArea {
+  id                String              @id @default(uuid()) @db.VarChar(36)
+  code              String              @unique @db.VarChar(40)
+  name              String              @db.VarChar(191)
+  type              ProtectedAreaType
+  status            ProtectedAreaStatus @default(ACTIVE)
+  region            String              @db.VarChar(96)
+  areaHa            Decimal             @db.Decimal(14, 2)
+  latitude          Decimal             @db.Decimal(10, 7)
+  longitude         Decimal             @db.Decimal(10, 7)
+  boundaryGeoJson   String?             @db.LongText
+  establishedAt     DateTime?
+  managingAuthority String?             @db.VarChar(191)
+  description       String?             @db.Text
+  biodiversityNotes String?             @db.Text
+  encroachmentRisk  RiskLevel           @default(LOW)
+  isDemo            Boolean             @default(false)
+  createdById       String              @db.VarChar(36)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+
+  createdBy    User                    @relation("ProtectedAreaCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  forests      Forest[]
+  gisLocations GISLocation[]
+  observations FieldObservation[]
+  violations   EnvironmentalViolation[]
+  inspections  Inspection[]
+  aiAlerts     AIAlert[]
+  reports      Report[]
+
+  @@index([type])
+  @@index([region])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("protected_areas")
+}
+
+model TreeSpecies {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  scientificName       String   @unique @db.VarChar(191)
+  commonName           String   @db.VarChar(191)
+  familyName           String?  @db.VarChar(120)
+  localName            String?  @db.VarChar(120)
+  iucnStatus           String?  @db.VarChar(32)
+  isProtected          Boolean  @default(false)
+  isCommercial         Boolean  @default(true)
+  maxHarvestDiameterCm Decimal? @db.Decimal(8, 2)
+  minRotationYears     Int?
+  woodDensityKgM3      Decimal? @db.Decimal(8, 2)
+  description          String?  @db.Text
+  isDemo               Boolean  @default(false)
+  createdById          String   @db.VarChar(36)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+
+  createdBy   User            @relation("SpeciesCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  inventories TreeInventory[]
+
+  @@index([isCommercial])
+  @@index([isProtected])
+  @@index([deletedAt])
+  @@map("tree_species")
+}
+
+model TreeInventory {
+  id                String           @id @default(uuid()) @db.VarChar(36)
+  forestId          String           @db.VarChar(36)
+  zoneId            String?          @db.VarChar(36)
+  speciesId         String           @db.VarChar(36)
+  surveyDate        DateTime
+  plotCode          String           @db.VarChar(40)
+  treesCounted      Int
+  averageDiameterCm Decimal?         @db.Decimal(8, 2)
+  averageHeightM    Decimal?         @db.Decimal(8, 2)
+  volumeM3          Decimal?         @db.Decimal(14, 2)
+  densityPerHa      Decimal?         @db.Decimal(10, 2)
+  healthStatus      TreeHealthStatus @default(HEALTHY)
+  latitude          Decimal          @db.Decimal(10, 7)
+  longitude         Decimal          @db.Decimal(10, 7)
+  notes             String?          @db.Text
+  isDemo            Boolean          @default(false)
+  recordedById      String           @db.VarChar(36)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+
+  forest     Forest      @relation(fields: [forestId], references: [id], onDelete: Cascade)
+  zone       ForestZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  species    TreeSpecies @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  recordedBy User        @relation("InventoryRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([forestId, surveyDate])
+  @@index([zoneId])
+  @@index([speciesId])
+  @@index([recordedById])
+  @@index([deletedAt])
+  @@map("tree_inventories")
+}
+
+// ============================================================================
+//  PERMITS
+// ============================================================================
+
+model ExploitationPermit {
+  id                 String         @id @default(uuid()) @db.VarChar(36)
+  permitNumber       String         @unique @db.VarChar(40)
+  type               PermitType
+  status             PermitStatus   @default(DRAFT)
+  priority           PermitPriority @default(NORMAL)
+  title              String         @db.VarChar(191)
+  purpose            String?        @db.Text
+  companyId          String         @db.VarChar(36)
+  applicantId        String         @db.VarChar(36)
+  forestId           String         @db.VarChar(36)
+  zoneId             String?        @db.VarChar(36)
+  volumeRequestedM3  Decimal        @db.Decimal(14, 2)
+  volumeApprovedM3   Decimal?       @db.Decimal(14, 2)
+  areaRequestedHa    Decimal?       @db.Decimal(14, 2)
+  currency           String         @default("XAF") @db.VarChar(8)
+  feeAmount          Decimal        @default(0) @db.Decimal(14, 2)
+  royaltyRatePerM3   Decimal?       @db.Decimal(14, 2)
+  startDate          DateTime
+  endDate            DateTime
+  submittedAt        DateTime?
+  reviewStartedAt    DateTime?
+  reviewedAt         DateTime?
+  reviewedById       String?        @db.VarChar(36)
+  approvedAt         DateTime?
+  approvedById       String?        @db.VarChar(36)
+  rejectionReason    String?        @db.Text
+  revisionNotes      String?        @db.Text
+  revisionCount      Int            @default(0)
+  activatedAt        DateTime?
+  suspendedAt        DateTime?
+  suspensionReason   String?        @db.Text
+  revokedAt          DateTime?
+  revocationReason   String?        @db.Text
+  expiresAt          DateTime?
+  previousPermitId   String?        @db.VarChar(36)
+  renewalCount       Int            @default(0)
+  conditions         String?        @db.LongText
+  isDemo             Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deletedAt          DateTime?
+
+  company        Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  applicant      User                   @relation("PermitApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
+  forest         Forest                 @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone           ForestZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  reviewedBy     User?                  @relation("PermitReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvedBy     User?                  @relation("PermitApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  previousPermit ExploitationPermit?    @relation("PermitRenewal", fields: [previousPermitId], references: [id], onDelete: SetNull)
+  renewedPermits ExploitationPermit[]   @relation("PermitRenewal")
+  documents      PermitDocument[]
+  statusHistory  PermitStatusHistory[]
+  activities     ExploitationActivity[]
+  payments       Payment[]
+  inspections    Inspection[]
+  violations     EnvironmentalViolation[]
+  aiAlerts       AIAlert[]
+  reports        Report[]
+  evidences      Evidence[]
+
+  @@index([status])
+  @@index([companyId, status])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([applicantId])
+  @@index([reviewedById])
+  @@index([approvedById])
+  @@index([previousPermitId])
+  @@index([endDate])
+  @@index([deletedAt])
+  @@map("exploitation_permits")
+}
+
+model PermitStatusHistory {
+  id           String        @id @default(uuid()) @db.VarChar(36)
+  permitId     String        @db.VarChar(36)
+  fromStatus   PermitStatus?
+  toStatus     PermitStatus
+  changedById  String?       @db.VarChar(36)
+  reason       String?       @db.VarChar(500)
+  metadataJson String?       @db.LongText
+  createdAt    DateTime      @default(now())
+
+  permit    ExploitationPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  changedBy User?              @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([permitId, createdAt])
+  @@index([changedById])
+  @@map("permit_status_history")
+}
+
+model PermitDocument {
+  id           String       @id @default(uuid()) @db.VarChar(36)
+  permitId     String       @db.VarChar(36)
+  type         DocumentType
+  title        String       @db.VarChar(191)
+  fileUrl      String       @db.VarChar(512)
+  fileKey      String       @db.VarChar(255)
+  mimeType     String       @db.VarChar(120)
+  sizeBytes    Int
+  checksum     String?      @db.VarChar(64)
+  isVerified   Boolean      @default(false)
+  verifiedById String?      @db.VarChar(36)
+  notes        String?      @db.Text
+  uploadedById String       @db.VarChar(36)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  permit     ExploitationPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  uploadedBy User               @relation("PermitDocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([permitId, type])
+  @@index([uploadedById])
+  @@index([deletedAt])
+  @@map("permit_documents")
+}
+
+// ============================================================================
+//  EXPLOITATION
+// ============================================================================
+
+model ExploitationActivity {
+  id                   String         @id @default(uuid()) @db.VarChar(36)
+  reference            String         @unique @db.VarChar(40)
+  permitId             String         @db.VarChar(36)
+  companyId            String         @db.VarChar(36)
+  forestId             String         @db.VarChar(36)
+  zoneId               String?        @db.VarChar(36)
+  activityType         ActivityType
+  status               ActivityStatus @default(PLANNED)
+  plannedVolumeM3      Decimal        @db.Decimal(14, 2)
+  harvestedVolumeM3    Decimal        @default(0) @db.Decimal(14, 2)
+  harvestedTreeCount   Int            @default(0)
+  plannedStartDate     DateTime
+  plannedEndDate       DateTime?
+  actualStartDate      DateTime?
+  actualEndDate        DateTime?
+  latitude             Decimal        @db.Decimal(10, 7)
+  longitude            Decimal        @db.Decimal(10, 7)
+  locationAccuracyM    Decimal?       @db.Decimal(8, 2)
+  gpsCapturedAt        DateTime?
+  gpsSource            GpsSource      @default(DEVICE_GPS)
+  equipmentSummary     String?        @db.VarChar(500)
+  observations         String?        @db.Text
+  speciesBreakdownJson String?        @db.LongText
+  createdById          String         @db.VarChar(36)
+  assignedToId         String?        @db.VarChar(36)
+  isDemo               Boolean        @default(false)
+  syncStatus           SyncStatus     @default(SYNCED)
+  clientRef            String?        @unique @db.VarChar(64)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  deletedAt            DateTime?
+
+  permit          ExploitationPermit     @relation(fields: [permitId], references: [id], onDelete: Restrict)
+  company         Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  forest          Forest                 @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone            ForestZone?            @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  createdBy       User                   @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo      User?                  @relation("ActivityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  equipmentUsage  ActivityEquipmentUsage[]
+  inspections     Inspection[]
+  observationsRel FieldObservation[]
+  violations      EnvironmentalViolation[]
+  aiAlerts        AIAlert[]
+  evidences       Evidence[]
+  fieldSessions   FieldSession[]
+  gisLocations    GISLocation[]
+
+  @@index([permitId])
+  @@index([companyId, status])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([plannedStartDate])
+  @@index([deletedAt])
+  @@map("exploitation_activities")
+}
+
+model Equipment {
+  id                 String            @id @default(uuid()) @db.VarChar(36)
+  companyId          String            @db.VarChar(36)
+  name               String            @db.VarChar(191)
+  category           EquipmentCategory
+  status             EquipmentStatus   @default(AVAILABLE)
+  registrationNumber String?           @db.VarChar(64)
+  serialNumber       String?           @db.VarChar(96)
+  manufacturer       String?           @db.VarChar(120)
+  model              String?           @db.VarChar(120)
+  acquiredAt         DateTime?
+  lastMaintenanceAt  DateTime?
+  nextMaintenanceAt  DateTime?
+  capacityM3         Decimal?          @db.Decimal(10, 2)
+  notes              String?           @db.Text
+  isDemo             Boolean           @default(false)
+  createdById        String            @db.VarChar(36)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  company   Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User                     @relation("EquipmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  usage     ActivityEquipmentUsage[]
+
+  @@unique([companyId, registrationNumber])
+  @@index([companyId, status])
+  @@index([category])
+  @@index([deletedAt])
+  @@map("equipment")
+}
+
+model ActivityEquipmentUsage {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  activityId   String   @db.VarChar(36)
+  equipmentId  String   @db.VarChar(36)
+  operatorName String?  @db.VarChar(191)
+  hoursUsed    Decimal  @default(0) @db.Decimal(8, 2)
+  fuelLitres   Decimal? @db.Decimal(10, 2)
+  notes        String?  @db.VarChar(255)
+  createdAt    DateTime @default(now())
+
+  activity  ExploitationActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  equipment Equipment            @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+
+  @@unique([activityId, equipmentId])
+  @@index([equipmentId])
+  @@map("activity_equipment_usage")
+}
+
+model FieldSession {
+  id             String             @id @default(uuid()) @db.VarChar(36)
+  userId         String             @db.VarChar(36)
+  activityId     String?            @db.VarChar(36)
+  forestId       String             @db.VarChar(36)
+  zoneId         String?            @db.VarChar(36)
+  status         FieldSessionStatus @default(ACTIVE)
+  startedAt      DateTime           @default(now())
+  endedAt        DateTime?
+  startLatitude  Decimal            @db.Decimal(10, 7)
+  startLongitude Decimal            @db.Decimal(10, 7)
+  endLatitude    Decimal?           @db.Decimal(10, 7)
+  endLongitude   Decimal?           @db.Decimal(10, 7)
+  startAccuracyM Decimal?           @db.Decimal(8, 2)
+  deviceInfoJson String?            @db.LongText
+  notes          String?            @db.Text
+  syncStatus     SyncStatus         @default(SYNCED)
+  clientRef      String?            @unique @db.VarChar(64)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity ExploitationActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  forest   Forest                @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone     ForestZone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([activityId])
+  @@index([forestId])
+  @@index([zoneId])
+  @@map("field_sessions")
+}
+
+// ============================================================================
+//  PAYMENTS
+// ============================================================================
+
+model Payment {
+  id                  String          @id @default(uuid()) @db.VarChar(36)
+  reference           String          @unique @db.VarChar(48)
+  purpose             PaymentPurpose
+  status              PaymentStatus   @default(PENDING)
+  provider            PaymentProvider @default(CAMPAY)
+  method              PaymentMethod?
+  amount              Decimal         @db.Decimal(14, 2)
+  currency            String          @default("XAF") @db.VarChar(8)
+  providerReference   String?         @db.VarChar(96)
+  providerPhone       String?         @db.VarChar(32)
+  providerPayloadJson String?         @db.LongText
+  receiptNumber       String?         @unique @db.VarChar(48)
+  failureReason       String?         @db.VarChar(500)
+  initiatedAt         DateTime        @default(now())
+  processedAt         DateTime?
+  paidAt              DateTime?
+  verifiedAt          DateTime?
+  refundedAt          DateTime?
+  payerId             String          @db.VarChar(36)
+  companyId           String?         @db.VarChar(36)
+  permitId            String?         @db.VarChar(36)
+  violationId         String?         @db.VarChar(36)
+  initiatedById       String          @db.VarChar(36)
+  verifiedById        String?         @db.VarChar(36)
+  notes               String?         @db.Text
+  isDemo              Boolean         @default(false)
+  syncStatus          SyncStatus      @default(SYNCED)
+  clientRef           String?         @unique @db.VarChar(64)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  payer       User                    @relation("PaymentPayer", fields: [payerId], references: [id], onDelete: Restrict)
+  initiatedBy User                    @relation("PaymentInitiator", fields: [initiatedById], references: [id], onDelete: Restrict)
+  verifiedBy  User?                   @relation("PaymentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  company     Company?                @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  permit      ExploitationPermit?     @relation(fields: [permitId], references: [id], onDelete: SetNull)
+  violation   EnvironmentalViolation? @relation(fields: [violationId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([purpose])
+  @@index([companyId])
+  @@index([permitId])
+  @@index([payerId])
+  @@index([initiatedAt])
+  @@map("payments")
+}
+
+// ============================================================================
+//  INSPECTIONS, OBSERVATIONS, VIOLATIONS, EVIDENCE
+// ============================================================================
+
+model Inspection {
+  id                        String             @id @default(uuid()) @db.VarChar(36)
+  reference                 String             @unique @db.VarChar(40)
+  type                      InspectionType
+  status                    InspectionStatus   @default(SCHEDULED)
+  outcome                   InspectionOutcome?
+  complianceScore           Int?
+  title                     String             @db.VarChar(191)
+  summary                   String?            @db.Text
+  recommendations           String?            @db.Text
+  forestId                  String             @db.VarChar(36)
+  zoneId                    String?            @db.VarChar(36)
+  protectedAreaId           String?            @db.VarChar(36)
+  companyId                 String?            @db.VarChar(36)
+  permitId                  String?            @db.VarChar(36)
+  activityId                String?            @db.VarChar(36)
+  inspectorId               String             @db.VarChar(36)
+  assignedById              String?            @db.VarChar(36)
+  reviewedById              String?            @db.VarChar(36)
+  scheduledFor              DateTime?
+  startedAt                 DateTime?
+  completedAt               DateTime?
+  submittedAt               DateTime?
+  reviewedAt                DateTime?
+  latitude                  Decimal            @db.Decimal(10, 7)
+  longitude                 Decimal            @db.Decimal(10, 7)
+  locationAccuracyM         Decimal?           @db.Decimal(8, 2)
+  gpsCapturedAt             DateTime?
+  gpsSource                 GpsSource          @default(DEVICE_GPS)
+  distanceFromTargetM       Decimal?           @db.Decimal(10, 2)
+  verifiedHarvestedVolumeM3 Decimal?           @db.Decimal(14, 2)
+  verifiedTreeCount         Int?
+  discrepancies             String?            @db.Text
+  isDemo                    Boolean            @default(false)
+  syncStatus                SyncStatus         @default(SYNCED)
+  clientRef                 String?            @unique @db.VarChar(64)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  deletedAt                 DateTime?
+
+  forest        Forest                    @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone          ForestZone?               @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  protectedArea ProtectedArea?            @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  company       Company?                  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  permit        ExploitationPermit?       @relation(fields: [permitId], references: [id], onDelete: SetNull)
+  activity      ExploitationActivity?     @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  inspector     User                      @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: Restrict)
+  assignedBy    User?                     @relation("InspectionAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  reviewedBy    User?                     @relation("InspectionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  checklist     InspectionChecklistItem[]
+  evidences     Evidence[]
+  observations  FieldObservation[]
+  violations    EnvironmentalViolation[]
+  aiAlerts      AIAlert[]
+  gisLocations  GISLocation[]
+
+  @@index([status, scheduledFor])
+  @@index([inspectorId, status])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([protectedAreaId])
+  @@index([companyId])
+  @@index([permitId])
+  @@index([activityId])
+  @@index([deletedAt])
+  @@map("inspections")
+}
+
+model InspectionChecklistItem {
+  id           String          @id @default(uuid()) @db.VarChar(36)
+  inspectionId String          @db.VarChar(36)
+  code         String          @db.VarChar(40)
+  label        String          @db.VarChar(255)
+  result       ChecklistResult @default(NOT_APPLICABLE)
+  notes        String?         @db.VarChar(500)
+  sortOrder    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, code])
+  @@index([inspectionId])
+  @@map("inspection_checklist_items")
+}
+
+model FieldObservation {
+  id                String              @id @default(uuid()) @db.VarChar(36)
+  forestId          String              @db.VarChar(36)
+  zoneId            String?             @db.VarChar(36)
+  protectedAreaId   String?             @db.VarChar(36)
+  activityId        String?             @db.VarChar(36)
+  inspectionId      String?             @db.VarChar(36)
+  category          ObservationCategory
+  severity          ViolationSeverity   @default(LOW)
+  title             String              @db.VarChar(191)
+  description       String              @db.Text
+  latitude          Decimal             @db.Decimal(10, 7)
+  longitude         Decimal             @db.Decimal(10, 7)
+  locationAccuracyM Decimal?            @db.Decimal(8, 2)
+  capturedAt        DateTime            @default(now())
+  gpsSource         GpsSource           @default(DEVICE_GPS)
+  observedById      String              @db.VarChar(36)
+  isDemo            Boolean             @default(false)
+  aiProcessedAt     DateTime?
+  syncStatus        SyncStatus          @default(SYNCED)
+  clientRef         String?             @unique @db.VarChar(64)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  forest        Forest                    @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone          ForestZone?               @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  protectedArea ProtectedArea?            @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  activity      ExploitationActivity?     @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  inspection    Inspection?               @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  observedBy    User                      @relation("ObservationObserver", fields: [observedById], references: [id], onDelete: Restrict)
+  violations    EnvironmentalViolation[]
+  aiAlerts      AIAlert[]
+  evidences     Evidence[]
+  gisLocations  GISLocation[]
+
+  @@index([forestId, capturedAt])
+  @@index([zoneId])
+  @@index([protectedAreaId])
+  @@index([activityId])
+  @@index([inspectionId])
+  @@index([category, severity])
+  @@index([observedById])
+  @@map("field_observations")
+}
+
+model EnvironmentalViolation {
+  id                  String            @id @default(uuid()) @db.VarChar(36)
+  reference           String            @unique @db.VarChar(40)
+  title               String            @db.VarChar(191)
+  description         String            @db.Text
+  severity            ViolationSeverity
+  status              ViolationStatus   @default(OPEN)
+  forestId            String            @db.VarChar(36)
+  zoneId              String?           @db.VarChar(36)
+  protectedAreaId     String?           @db.VarChar(36)
+  companyId           String?           @db.VarChar(36)
+  permitId            String?           @db.VarChar(36)
+  activityId          String?           @db.VarChar(36)
+  inspectionId        String?           @db.VarChar(36)
+  observationId       String?           @db.VarChar(36)
+  aiAlertId           String?           @db.VarChar(36)
+  latitude            Decimal           @db.Decimal(10, 7)
+  longitude           Decimal           @db.Decimal(10, 7)
+  detectedAt          DateTime          @default(now())
+  detectedById        String            @db.VarChar(36)
+  estimatedDamageXAF  Decimal?          @db.Decimal(14, 2)
+  penaltyAmountXAF    Decimal?          @db.Decimal(14, 2)
+  remediationRequired Boolean           @default(false)
+  remediationDeadline DateTime?
+  remediationNotes    String?           @db.Text
+  investigationNotes  String?           @db.Text
+  resolvedAt          DateTime?
+  resolvedById        String?           @db.VarChar(36)
+  resolutionSummary   String?           @db.Text
+  isDemo              Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  forest        Forest                @relation(fields: [forestId], references: [id], onDelete: Restrict)
+  zone          ForestZone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  protectedArea ProtectedArea?        @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  company       Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  permit        ExploitationPermit?   @relation(fields: [permitId], references: [id], onDelete: SetNull)
+  activity      ExploitationActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  inspection    Inspection?           @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  observation   FieldObservation?     @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  detectedBy    User                  @relation("ViolationDetector", fields: [detectedById], references: [id], onDelete: Restrict)
+  resolvedBy    User?                 @relation("ViolationResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  payments      Payment[]
+  evidences     Evidence[]
+  gisLocations  GISLocation[]
+
+  @@index([status, severity])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([protectedAreaId])
+  @@index([companyId])
+  @@index([permitId])
+  @@index([activityId])
+  @@index([inspectionId])
+  @@index([detectedAt])
+  @@index([deletedAt])
+  @@map("environmental_violations")
+}
+
+model Evidence {
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  type              EvidenceType
+  source            EvidenceSource @default(FILE_UPLOAD)
+  title             String?        @db.VarChar(191)
+  caption           String?        @db.VarChar(500)
+  fileUrl           String         @db.VarChar(512)
+  fileKey           String         @db.VarChar(255)
+  mimeType          String         @db.VarChar(120)
+  sizeBytes         Int
+  checksum          String?        @db.VarChar(64)
+  latitude          Decimal?       @db.Decimal(10, 7)
+  longitude         Decimal?       @db.Decimal(10, 7)
+  locationAccuracyM Decimal?       @db.Decimal(8, 2)
+  capturedAt        DateTime?
+  gpsSource         GpsSource?
+  inspectionId      String?        @db.VarChar(36)
+  activityId        String?        @db.VarChar(36)
+  observationId     String?        @db.VarChar(36)
+  violationId       String?        @db.VarChar(36)
+  permitId          String?        @db.VarChar(36)
+  companyId         String?        @db.VarChar(36)
+  uploadedById      String         @db.VarChar(36)
+  syncStatus        SyncStatus     @default(SYNCED)
+  clientRef         String?        @unique @db.VarChar(64)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  deletedAt         DateTime?
+
+  inspection  Inspection?             @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  activity    ExploitationActivity?   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  observation FieldObservation?       @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  violation   EnvironmentalViolation? @relation(fields: [violationId], references: [id], onDelete: Cascade)
+  permit      ExploitationPermit?     @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  company     Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy  User                    @relation("EvidenceUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([inspectionId])
+  @@index([activityId])
+  @@index([observationId])
+  @@index([violationId])
+  @@index([permitId])
+  @@index([companyId])
+  @@index([uploadedById])
+  @@index([deletedAt])
+  @@map("evidences")
+}
+
+// ============================================================================
+//  REPORTS, NOTIFICATIONS, GIS
+// ============================================================================
+
+model Report {
+  id              String        @id @default(uuid()) @db.VarChar(36)
+  reference       String        @unique @db.VarChar(48)
+  type            ReportType
+  format          ReportFormat  @default(JSON)
+  status          ReportStatus  @default(DRAFT)
+  title           String        @db.VarChar(191)
+  parametersJson  String?       @db.LongText
+  summaryJson     String?       @db.LongText
+  dateFrom        DateTime?
+  dateTo          DateTime?
+  forestId        String?       @db.VarChar(36)
+  zoneId          String?       @db.VarChar(36)
+  protectedAreaId String?       @db.VarChar(36)
+  companyId       String?       @db.VarChar(36)
+  permitId        String?       @db.VarChar(36)
+  fileUrl         String?       @db.VarChar(512)
+  fileKey         String?       @db.VarChar(255)
+  sizeBytes       Int?
+  generatedById   String        @db.VarChar(36)
+  generatedAt     DateTime?
+  errorMessage    String?       @db.VarChar(500)
+  isDemo          Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  forest        Forest?             @relation(fields: [forestId], references: [id], onDelete: SetNull)
+  protectedArea ProtectedArea?      @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  company       Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  permit        ExploitationPermit? @relation(fields: [permitId], references: [id], onDelete: SetNull)
+  generatedBy   User                @relation("ReportGenerator", fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@index([type, status])
+  @@index([generatedById])
+  @@index([forestId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("reports")
+}
+
+model Notification {
+  id             String            @id @default(uuid()) @db.VarChar(36)
+  userId         String            @db.VarChar(36)
+  type           NotificationType
+  title          String            @db.VarChar(191)
+  message        String            @db.VarChar(500)
+  entityType     String?           @db.VarChar(64)
+  entityId       String?           @db.VarChar(64)
+  actionUrl      String?           @db.VarChar(255)
+  severity       AuditSeverity     @default(INFO)
+  readAt         DateTime?
+  deliveredInApp Boolean           @default(true)
+  deliveredPush  Boolean           @default(false)
+  deliveredEmail Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  expiresAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id           String           @id @default(uuid()) @db.VarChar(36)
+  userId       String           @db.VarChar(36)
+  type         NotificationType
+  inAppEnabled Boolean          @default(true)
+  pushEnabled  Boolean          @default(true)
+  emailEnabled Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+model GISLocation {
+  id              String         @id @default(uuid()) @db.VarChar(36)
+  featureType     GisFeatureType
+  entityId        String         @db.VarChar(36)
+  label           String         @db.VarChar(191)
+  latitude        Decimal        @db.Decimal(10, 7)
+  longitude       Decimal        @db.Decimal(10, 7)
+  elevationM      Int?
+  accuracyM       Decimal?       @db.Decimal(8, 2)
+  source          GpsSource      @default(SYSTEM_RECORDED)
+  forestId        String?        @db.VarChar(36)
+  zoneId          String?        @db.VarChar(36)
+  protectedAreaId String?        @db.VarChar(36)
+  activityId      String?        @db.VarChar(36)
+  inspectionId    String?        @db.VarChar(36)
+  observationId   String?        @db.VarChar(36)
+  violationId     String?        @db.VarChar(36)
+  aiAlertId       String?        @db.VarChar(36)
+  recordedById    String?        @db.VarChar(36)
+  recordedAt      DateTime       @default(now())
+  isDemo          Boolean        @default(false)
+  metadataJson    String?        @db.LongText
+  createdAt       DateTime       @default(now())
+
+  forest        Forest?                @relation(fields: [forestId], references: [id], onDelete: Cascade)
+  zone          ForestZone?            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  protectedArea ProtectedArea?         @relation(fields: [protectedAreaId], references: [id], onDelete: Cascade)
+  activity      ExploitationActivity?  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  inspection    Inspection?            @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  observation   FieldObservation?      @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  violation     EnvironmentalViolation? @relation(fields: [violationId], references: [id], onDelete: Cascade)
+  aiAlert       AIAlert?               @relation(fields: [aiAlertId], references: [id], onDelete: Cascade)
+  recordedBy    User?                  @relation("LocationRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([featureType, entityId])
+  @@index([latitude, longitude])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([protectedAreaId])
+  @@index([activityId])
+  @@index([inspectionId])
+  @@index([observationId])
+  @@index([violationId])
+  @@index([aiAlertId])
+  @@map("gis_locations")
+}
+
+// ============================================================================
+//  AI — FOREST INTELLIGENCE & FOREST ASSISTANT
+// ============================================================================
+
+model AIAnalysis {
+  id            String           @id @default(uuid()) @db.VarChar(36)
+  type          AiAnalysisType
+  status        AiAnalysisStatus @default(PENDING)
+  provider      AiProvider       @default(LOCAL_RULE_ENGINE)
+  model         String?          @db.VarChar(96)
+  promptText    String?          @db.LongText
+  responseJson  String?          @db.LongText
+  resultJson    String?          @db.LongText
+  summary       String?          @db.Text
+  riskLevel     RiskLevel?
+  confidence    Decimal?         @db.Decimal(5, 4)
+  entityType    String?          @db.VarChar(64)
+  entityId      String?          @db.VarChar(64)
+  forestId      String?          @db.VarChar(36)
+  zoneId        String?          @db.VarChar(36)
+  latencyMs     Int?
+  tokensUsed    Int?
+  errorMessage  String?          @db.VarChar(500)
+  requestedById String?          @db.VarChar(36)
+  reviewedById  String?          @db.VarChar(36)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  requestedBy User?     @relation("AnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?     @relation("AnalysisReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  alerts      AIAlert[]
+
+  @@index([type, status])
+  @@index([entityType, entityId])
+  @@index([forestId])
+  @@index([requestedById])
+  @@index([createdAt])
+  @@map("ai_analyses")
+}
+
+model AIAlert {
+  id               String      @id @default(uuid()) @db.VarChar(36)
+  reference        String      @unique @db.VarChar(48)
+  type             AlertType
+  status           AlertStatus @default(NEW)
+  riskLevel        RiskLevel   @default(LOW)
+  confidence       Decimal?    @db.Decimal(5, 4)
+  title            String      @db.VarChar(191)
+  description      String      @db.Text
+  reasoning        String?     @db.Text
+  detector         AiProvider  @default(LOCAL_RULE_ENGINE)
+  analysisId       String?     @db.VarChar(36)
+  entityType       String?     @db.VarChar(64)
+  entityId         String?     @db.VarChar(64)
+  forestId         String?     @db.VarChar(36)
+  zoneId           String?     @db.VarChar(36)
+  protectedAreaId  String?     @db.VarChar(36)
+  companyId        String?     @db.VarChar(36)
+  permitId         String?     @db.VarChar(36)
+  activityId       String?     @db.VarChar(36)
+  inspectionId     String?     @db.VarChar(36)
+  observationId    String?     @db.VarChar(36)
+  latitude         Decimal?    @db.Decimal(10, 7)
+  longitude        Decimal?    @db.Decimal(10, 7)
+  detectedAt       DateTime    @default(now())
+  reviewedById     String?     @db.VarChar(36)
+  reviewedAt       DateTime?
+  reviewNotes      String?     @db.Text
+  resolutionAction String?     @db.VarChar(500)
+  resolvedAt       DateTime?
+  violationId      String?     @db.VarChar(36)
+  isDemo           Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  analysis      AIAnalysis?           @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  forest        Forest?               @relation(fields: [forestId], references: [id], onDelete: SetNull)
+  zone          ForestZone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  protectedArea ProtectedArea?        @relation(fields: [protectedAreaId], references: [id], onDelete: SetNull)
+  company       Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  permit        ExploitationPermit?   @relation(fields: [permitId], references: [id], onDelete: SetNull)
+  activity      ExploitationActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  inspection    Inspection?           @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  observation   FieldObservation?     @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  reviewedBy    User?                 @relation("AlertReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  gisLocations  GISLocation[]
+
+  @@index([status, riskLevel])
+  @@index([type])
+  @@index([forestId])
+  @@index([zoneId])
+  @@index([protectedAreaId])
+  @@index([companyId])
+  @@index([permitId])
+  @@index([activityId])
+  @@index([inspectionId])
+  @@index([observationId])
+  @@index([reviewedById])
+  @@index([detectedAt])
+  @@map("ai_alerts")
+}
+
+model AIConversation {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  userId        String   @db.VarChar(36)
+  title         String?  @db.VarChar(191)
+  contextJson   String?  @db.LongText
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  archivedAt    DateTime?
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String     @id @default(uuid()) @db.VarChar(36)
+  conversationId String     @db.VarChar(36)
+  role           ChatRole
+  content        String     @db.LongText
+  provider       AiProvider?
+  model          String?    @db.VarChar(96)
+  intentJson     String?    @db.LongText
+  dataRefsJson   String?    @db.LongText
+  latencyMs      Int?
+  tokensUsed     Int?
+  errorMessage   String?    @db.VarChar(500)
+  createdAt      DateTime   @default(now())
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
