@@ -55,13 +55,16 @@ async function login(email) {
   return call('POST', '/auth/login', { body: { email, password: PASSWORD } });
 }
 
-const EMPLOYER = {
-  'demo.company@fems.cm': 'demo-co-smds',
-  'demo.cooperative@fems.cm': 'demo-co-cofcom',
-  'demo.efe@fems.cm': 'demo-co-efe',
-  'demo.bsc@fems.cm': 'demo-co-bsc',
-  'demo.cwpi@fems.cm': 'demo-co-cwpi',
-};
+// Accounts that represent a logging company. Their own company id is resolved
+// from the API — never hard-coded — so the check keeps working whatever the
+// dataset looks like.
+const EMPLOYER_ACCOUNTS = new Set([
+  'demo.company@fems.cm',
+  'demo.cooperative@fems.cm',
+  'demo.efe@fems.cm',
+  'demo.bsc@fems.cm',
+  'demo.cwpi@fems.cm',
+]);
 
 const EXPECTED = {
   'demo.admin@fems.cm': { permits: 200, inspections: 200, payments: 200, violations: 200, alerts: 200, reports: 200, activities: 200 },
@@ -98,7 +101,16 @@ for (const [email, expected] of Object.entries(EXPECTED)) {
   check('signs in with the seeded password', Boolean(token), token ? 'token issued' : `HTTP ${auth.status} ${auth.body?.error?.code ?? ''}`);
   if (!token) continue;
 
-  const employer = EMPLOYER[email] ?? null;
+  let employer = null;
+  if (EMPLOYER_ACCOUNTS.has(email)) {
+    const mine = await call('GET', '/companies/me', { token });
+    employer = mine.body?.data?.id ?? null;
+    check(
+      'resolves its own company from the API',
+      Boolean(employer),
+      employer ? employer : `HTTP ${mine.status} ${mine.body?.error?.code ?? ''}`,
+    );
+  }
   let leaked = 0;
 
   for (const [label, endpoint, scopeField] of MODULES) {

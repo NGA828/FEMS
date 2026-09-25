@@ -25,6 +25,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import bcrypt from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -147,7 +148,29 @@ function tally(kind: string, amount = 1): void {
   counts.set(kind, (counts.get(kind) ?? 0) + amount);
 }
 
-/** Deterministic, human-readable id — FEMS ids are VarChar(36) so `demo-…` fits. */
+/**
+ * Deterministic UUID for a demo record.
+ *
+ * Production rows get a UUID from Prisma, and the API validates referenced ids
+ * with `@IsUUID()` — so the demo dataset has to use UUIDs too, or a seeded
+ * record could not be referenced from a payload. The UUID is derived from a
+ * readable key, which keeps the dataset reproducible: `demoId('forest', 'bidou')`
+ * is the same value on every machine, and the human-readable identity lives in
+ * the `reference`/`code`/`permitNumber` columns.
+ */
+function demoId(kind: string, key: string | number): string {
+  const digest = createHash('sha1').update(`fems-demo:${kind}:${key}`).digest('hex');
+  // Shape it as an RFC 4122 version-5 UUID (name-based, SHA-1).
+  return [
+    digest.slice(0, 8),
+    digest.slice(8, 12),
+    `5${digest.slice(13, 16)}`,
+    ((parseInt(digest.slice(16, 17), 16) & 0x3) | 0x8).toString(16) + digest.slice(17, 20),
+    digest.slice(20, 32),
+  ].join('-');
+}
+
+/** Upserts one row by its primary key and returns the id. */
 async function put(
   label: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -3058,7 +3081,7 @@ async function seedUsers(roleIds: Map<string, string>): Promise<Map<string, stri
   const ids = new Map<string, string>();
 
   for (const spec of USERS) {
-    const id = `demo-user-${spec.key}`;
+    const id = demoId('user', spec.key);
     const roleId = roleIds.get(spec.role);
     if (!roleId) throw new Error(`Unknown role ${spec.role} for demo user ${spec.email}`);
 
@@ -3090,7 +3113,7 @@ async function seedUsers(roleIds: Map<string, string>): Promise<Map<string, stri
 async function seedCompanies(userIds: Map<string, string>): Promise<void> {
   for (const spec of COMPANIES) {
     const verifiedDays = spec.status === CompanyStatus.VERIFIED ? -390 : undefined;
-    await put('company', prisma.company, `demo-co-${spec.key}`, {
+    await put('company', prisma.company, demoId('co', spec.key), {
       name: spec.name,
       registrationNumber: spec.registrationNumber,
       taxNumber: spec.taxNumber,
@@ -3201,8 +3224,8 @@ async function seedCompanies(userIds: Map<string, string>): Promise<void> {
   ];
 
   for (const doc of documents) {
-    await put('company document', prisma.companyDocument, `demo-doc-${doc.key}`, {
-      companyId: `demo-co-${doc.companyKey}`,
+    await put('company document', prisma.companyDocument, demoId('doc', doc.key), {
+      companyId: demoId('co', doc.companyKey),
       type: doc.type,
       title: doc.title,
       fileUrl: `/files/demo/${doc.key}.pdf`,
@@ -3225,12 +3248,12 @@ async function linkCompaniesAndUsers(userIds: Map<string, string>): Promise<void
     if (!spec.companyKey) continue;
     await prisma.user.update({
       where: { id: userIds.get(spec.key) as string },
-      data: { companyId: `demo-co-${spec.companyKey}` },
+      data: { companyId: demoId('co', spec.companyKey) },
     });
   }
   for (const spec of COMPANIES) {
     await prisma.company.update({
-      where: { id: `demo-co-${spec.key}` },
+      where: { id: demoId('co', spec.key) },
       data: { ownerId: userIds.get('company') as string },
     });
   }
@@ -3240,7 +3263,7 @@ async function linkCompaniesAndUsers(userIds: Map<string, string>): Promise<void
 async function seedForests(userIds: Map<string, string>): Promise<void> {
   const protectedAreaIds = new Map<string, string>();
   for (const area of PROTECTED_AREAS) {
-    const id = `demo-pa-${area.key}`;
+    const id = demoId('pa', area.key);
     await put('protected area', prisma.protectedArea, id, {
       code: area.code,
       name: area.name,
@@ -3275,7 +3298,7 @@ async function seedForests(userIds: Map<string, string>): Promise<void> {
   }
 
   for (const forest of FORESTS) {
-    const id = `demo-forest-${forest.key}`;
+    const id = demoId('forest', forest.key);
     await put('forest', prisma.forest, id, {
       code: forest.code,
       name: forest.name,
@@ -3316,8 +3339,8 @@ async function seedForests(userIds: Map<string, string>): Promise<void> {
   }
 
   for (const zone of ZONES) {
-    const id = `demo-zone-${zone.key}`;
-    const forestId = `demo-forest-${zone.forestKey}`;
+    const id = demoId('zone', zone.key);
+    const forestId = demoId('forest', zone.forestKey);
     await put('forest zone', prisma.forestZone, id, {
       forestId,
       code: zone.code,
@@ -3385,7 +3408,7 @@ async function seedSpecies(userIds: Map<string, string>): Promise<Map<string, st
       continue;
     }
 
-    const id = `demo-species-${species.key}`;
+    const id = demoId('species', species.key);
     await put('tree species', prisma.treeSpecies, id, {
       ...fields,
       isDemo: true,
@@ -3403,7 +3426,10 @@ async function seedSpecies(userIds: Map<string, string>): Promise<Map<string, st
  * database already holds non-demo records under the same keys.
  */
 async function assertNoNaturalKeyConflicts(): Promise<string[]> {
-  const notDemo = { NOT: { id: { startsWith: 'demo-' } } };
+  // "Not one of ours" is the `isDemo` flag, not an id prefix: seeded ids are
+  // UUIDs like every other row, so a prefix test would flag the demo dataset
+  // itself as a conflict on the second run.
+  const notDemo = { isDemo: false };
   const [areas, forests, companies, permits, inspections, violations, payments, activities, reports, users] =
     await Promise.all([
       prisma.protectedArea.findMany({ where: { code: { in: PROTECTED_AREAS.map((row) => row.code) }, ...notDemo }, select: { code: true } }),
@@ -3482,9 +3508,9 @@ async function seedInventories(userIds: Map<string, string>, speciesIds: Map<str
     const basalAreaM2 = (Math.PI / 4) * (row.diameterCm / 100) ** 2;
     const volumeM3 = round(basalAreaM2 * row.heightM * 0.5 * row.count, 2);
 
-    await put('tree inventory', prisma.treeInventory, `demo-inventory-${String(index).padStart(3, '0')}`, {
-      forestId: `demo-forest-${row.forest}`,
-      zoneId: `demo-zone-${row.zone}`,
+    await put('tree inventory', prisma.treeInventory, demoId('inventory', String(index).padStart(3, '0')), {
+      forestId: demoId('forest', row.forest),
+      zoneId: demoId('zone', row.zone),
       speciesId: speciesIds.get(row.species) as string,
       surveyDate: daysFromNow(-90 - index * 3),
       plotCode: row.plot,
@@ -3505,7 +3531,7 @@ async function seedInventories(userIds: Map<string, string>, speciesIds: Map<str
 
 async function seedPermits(userIds: Map<string, string>): Promise<void> {
   for (const permit of PERMITS) {
-    const id = `demo-permit-${permit.key}`;
+    const id = demoId('permit', permit.key);
     const feeAmount = round(permit.volumeRequestedM3 * ROYALTY_RATE, 2);
     await put('permit', prisma.exploitationPermit, id, {
       permitNumber: permit.permitNumber,
@@ -3514,10 +3540,10 @@ async function seedPermits(userIds: Map<string, string>): Promise<void> {
       priority: permit.priority,
       title: permit.title,
       purpose: permit.purpose,
-      companyId: `demo-co-${permit.companyKey}`,
+      companyId: demoId('co', permit.companyKey),
       applicantId: userIds.get(permit.companyKey === 'cofcom' ? 'company2' : 'company') as string,
-      forestId: `demo-forest-${permit.forestKey}`,
-      zoneId: permit.zoneKey ? `demo-zone-${permit.zoneKey}` : null,
+      forestId: demoId('forest', permit.forestKey),
+      zoneId: permit.zoneKey ? demoId('zone', permit.zoneKey) : null,
       volumeRequestedM3: permit.volumeRequestedM3,
       volumeApprovedM3: permit.volumeApprovedM3 ?? null,
       areaRequestedHa: permit.areaRequestedHa ?? null,
@@ -3569,7 +3595,7 @@ async function seedPermits(userIds: Map<string, string>): Promise<void> {
     let order = 0;
     for (const entry of history.sort((a, b) => a.at - b.at)) {
       order += 1;
-      const historyId = `demo-ph-${permit.key}-${String(order).padStart(2, '0')}`;
+      const historyId = demoId('ph', `${permit.key}-${String(order).padStart(2, '0')}`);
       await putComposite(
         'permit history',
         prisma.permitStatusHistory,
@@ -3588,7 +3614,7 @@ async function seedPermits(userIds: Map<string, string>): Promise<void> {
     }
 
     if (permit.status === PermitStatus.ACTIVE || permit.status === PermitStatus.EXPIRED) {
-      await put('permit document', prisma.permitDocument, `demo-pdoc-${permit.key}`, {
+      await put('permit document', prisma.permitDocument, demoId('pdoc', permit.key), {
         permitId: id,
         type: DocumentType.EXPLOITATION_LICENCE,
         title: `Titre d’exploitation — ${permit.permitNumber}`,
@@ -3608,13 +3634,13 @@ async function seedPermits(userIds: Map<string, string>): Promise<void> {
 async function seedActivities(userIds: Map<string, string>, speciesIds: Map<string, string>): Promise<void> {
   for (const activity of ACTIVITIES) {
     const permit = PERMITS.find((candidate) => candidate.key === activity.permitKey) as PermitSpec;
-    const id = `demo-act-${activity.key}`;
+    const id = demoId('act', activity.key);
     await put('activity', prisma.exploitationActivity, id, {
       reference: `DEMO-ACT-2026-${activity.key.slice(1).padStart(4, '0')}`,
-      permitId: `demo-permit-${activity.permitKey}`,
-      companyId: `demo-co-${permit.companyKey}`,
-      forestId: `demo-forest-${permit.forestKey}`,
-      zoneId: permit.zoneKey ? `demo-zone-${permit.zoneKey}` : null,
+      permitId: demoId('permit', activity.permitKey),
+      companyId: demoId('co', permit.companyKey),
+      forestId: demoId('forest', permit.forestKey),
+      zoneId: permit.zoneKey ? demoId('zone', permit.zoneKey) : null,
       activityType: activity.activityType,
       status: activity.status,
       plannedVolumeM3: activity.plannedVolumeM3,
@@ -3665,8 +3691,8 @@ async function seedActivities(userIds: Map<string, string>, speciesIds: Map<stri
       longitude: activity.longitude,
       accuracyM: activity.accuracyM,
       source: GpsSource.SEED_DEMO,
-      forestId: `demo-forest-${permit.forestKey}`,
-      zoneId: permit.zoneKey ? `demo-zone-${permit.zoneKey}` : null,
+      forestId: demoId('forest', permit.forestKey),
+      zoneId: permit.zoneKey ? demoId('zone', permit.zoneKey) : null,
       activityId: id,
       recordedById: userIds.get(activity.assignedTo),
       recordedAt: daysFromNow(activity.gpsCapturedDays, 7),
@@ -3697,10 +3723,10 @@ async function seedActivities(userIds: Map<string, string>, speciesIds: Map<stri
     await putComposite(
       'equipment usage',
       prisma.activityEquipmentUsage,
-      { activityId_equipmentId: { activityId: `demo-act-${row.activity}`, equipmentId: `demo-eq-${row.equipment}` } },
+      { activityId_equipmentId: { activityId: demoId('act', row.activity), equipmentId: demoId('eq', row.equipment) } },
       {
-        activityId: `demo-act-${row.activity}`,
-        equipmentId: `demo-eq-${row.equipment}`,
+        activityId: demoId('act', row.activity),
+        equipmentId: demoId('eq', row.equipment),
         operatorName: row.operator,
         hoursUsed: row.hours,
         fuelLitres: row.fuel,
@@ -3712,8 +3738,8 @@ async function seedActivities(userIds: Map<string, string>, speciesIds: Map<stri
 
 async function seedEquipment(userIds: Map<string, string>): Promise<void> {
   for (const item of EQUIPMENT) {
-    await put('equipment', prisma.equipment, `demo-eq-${item.key}`, {
-      companyId: `demo-co-${item.companyKey}`,
+    await put('equipment', prisma.equipment, demoId('eq', item.key), {
+      companyId: demoId('co', item.companyKey),
       name: item.name,
       category: item.category,
       status: item.status,
@@ -3745,7 +3771,7 @@ async function seedPayments(userIds: Map<string, string>): Promise<void> {
           ? 'smds'
           : 'cofcom';
     const payingActor = actorForCompany(userIds, payingCompanyKey);
-    await put('payment', prisma.payment, `demo-pay-${payment.key}`, {
+    await put('payment', prisma.payment, demoId('pay', payment.key), {
       reference,
       purpose: payment.purpose,
       status: payment.status,
@@ -3779,22 +3805,22 @@ async function seedPayments(userIds: Map<string, string>): Promise<void> {
       verifiedAt: payment.verifiedDays === undefined ? null : daysFromNow(payment.verifiedDays),
       refundedAt: payment.status === PaymentStatus.REFUNDED ? daysFromNow(payment.processedDays ?? payment.initiatedDays) : null,
       payerId: payingActor,
-      companyId: `demo-co-${payingCompanyKey}`,
-      permitId: payment.permitKey ? `demo-permit-${payment.permitKey}` : null,
-      violationId: payment.violationKey ? `demo-vio-${payment.violationKey}` : null,
+      companyId: demoId('co', payingCompanyKey),
+      permitId: payment.permitKey ? demoId('permit', payment.permitKey) : null,
+      violationId: payment.violationKey ? demoId('vio', payment.violationKey) : null,
       initiatedById: payingActor,
       verifiedById: payment.verifiedDays === undefined ? null : userIds.get('officer'),
       notes: `${payment.notes} Paiement enregistré par le simulateur local de démonstration (PAYMENT_PROVIDER=simulator), et non par Campay.`,
       isDemo: true,
       syncStatus: SyncStatus.SYNCED,
-      clientRef: `demo-payment-${payment.key}`,
+      clientRef: demoId('payment', payment.key),
     });
   }
 }
 
 async function seedInspections(userIds: Map<string, string>): Promise<void> {
   for (const inspection of INSPECTIONS) {
-    const id = `demo-insp-${inspection.key}`;
+    const id = demoId('insp', inspection.key);
     await put('inspection', prisma.inspection, id, {
       reference: inspection.reference,
       type: inspection.type,
@@ -3804,12 +3830,12 @@ async function seedInspections(userIds: Map<string, string>): Promise<void> {
       title: inspection.title,
       summary: inspection.summary,
       recommendations: inspection.recommendations,
-      forestId: `demo-forest-${inspection.forestKey}`,
-      zoneId: inspection.zoneKey ? `demo-zone-${inspection.zoneKey}` : null,
-      protectedAreaId: inspection.protectedAreaKey ? `demo-pa-${inspection.protectedAreaKey}` : null,
-      companyId: inspection.companyKey ? `demo-co-${inspection.companyKey}` : null,
-      permitId: inspection.permitKey ? `demo-permit-${inspection.permitKey}` : null,
-      activityId: inspection.activityKey ? `demo-act-${inspection.activityKey}` : null,
+      forestId: demoId('forest', inspection.forestKey),
+      zoneId: inspection.zoneKey ? demoId('zone', inspection.zoneKey) : null,
+      protectedAreaId: inspection.protectedAreaKey ? demoId('pa', inspection.protectedAreaKey) : null,
+      companyId: inspection.companyKey ? demoId('co', inspection.companyKey) : null,
+      permitId: inspection.permitKey ? demoId('permit', inspection.permitKey) : null,
+      activityId: inspection.activityKey ? demoId('act', inspection.activityKey) : null,
       inspectorId: userIds.get(inspection.inspector) as string,
       assignedById: userIds.get('officer'),
       reviewedById: inspection.reviewedDays === undefined ? null : userIds.get('officer'),
@@ -3867,9 +3893,9 @@ async function seedInspections(userIds: Map<string, string>): Promise<void> {
       longitude: inspection.longitude,
       accuracyM: inspection.accuracyM,
       source: GpsSource.SEED_DEMO,
-      forestId: `demo-forest-${inspection.forestKey}`,
-      zoneId: inspection.zoneKey ? `demo-zone-${inspection.zoneKey}` : null,
-      protectedAreaId: inspection.protectedAreaKey ? `demo-pa-${inspection.protectedAreaKey}` : null,
+      forestId: demoId('forest', inspection.forestKey),
+      zoneId: inspection.zoneKey ? demoId('zone', inspection.zoneKey) : null,
+      protectedAreaId: inspection.protectedAreaKey ? demoId('pa', inspection.protectedAreaKey) : null,
       inspectionId: id,
       recordedById: userIds.get(inspection.inspector),
       recordedAt: daysFromNow(inspection.gpsCapturedDays, 8),
@@ -3881,7 +3907,7 @@ async function seedInspections(userIds: Map<string, string>): Promise<void> {
 
 async function seedViolations(userIds: Map<string, string>): Promise<void> {
   for (const violation of VIOLATIONS) {
-    const id = `demo-vio-${violation.key}`;
+    const id = demoId('vio', violation.key);
     await put('violation', prisma.environmentalViolation, id, {
       reference: violation.reference,
       title: violation.title,
@@ -3889,13 +3915,13 @@ async function seedViolations(userIds: Map<string, string>): Promise<void> {
       // `severity` below is cast through the enum list to keep the type strict.
       severity: (violation.severity as ViolationSeverity),
       status: violation.status,
-      forestId: `demo-forest-${violation.forestKey}`,
-      zoneId: violation.zoneKey ? `demo-zone-${violation.zoneKey}` : null,
-      protectedAreaId: violation.protectedAreaKey ? `demo-pa-${violation.protectedAreaKey}` : null,
-      companyId: violation.companyKey ? `demo-co-${violation.companyKey}` : null,
-      permitId: violation.permitKey ? `demo-permit-${violation.permitKey}` : null,
-      activityId: violation.activityKey ? `demo-act-${violation.activityKey}` : null,
-      inspectionId: violation.inspectionKey ? `demo-insp-${violation.inspectionKey}` : null,
+      forestId: demoId('forest', violation.forestKey),
+      zoneId: violation.zoneKey ? demoId('zone', violation.zoneKey) : null,
+      protectedAreaId: violation.protectedAreaKey ? demoId('pa', violation.protectedAreaKey) : null,
+      companyId: violation.companyKey ? demoId('co', violation.companyKey) : null,
+      permitId: violation.permitKey ? demoId('permit', violation.permitKey) : null,
+      activityId: violation.activityKey ? demoId('act', violation.activityKey) : null,
+      inspectionId: violation.inspectionKey ? demoId('insp', violation.inspectionKey) : null,
       latitude: violation.latitude,
       longitude: violation.longitude,
       detectedAt: daysFromNow(violation.detectedDays, 10),
@@ -3922,8 +3948,8 @@ async function seedViolations(userIds: Map<string, string>): Promise<void> {
       latitude: violation.latitude,
       longitude: violation.longitude,
       source: GpsSource.SEED_DEMO,
-      forestId: `demo-forest-${violation.forestKey}`,
-      zoneId: violation.zoneKey ? `demo-zone-${violation.zoneKey}` : null,
+      forestId: demoId('forest', violation.forestKey),
+      zoneId: violation.zoneKey ? demoId('zone', violation.zoneKey) : null,
       violationId: id,
       recordedById: userIds.get('environment'),
       recordedAt: daysFromNow(violation.detectedDays, 10),
@@ -3935,13 +3961,13 @@ async function seedViolations(userIds: Map<string, string>): Promise<void> {
 
 async function seedObservations(userIds: Map<string, string>): Promise<void> {
   for (const observation of OBSERVATIONS) {
-    const id = `demo-obs-${observation.key}`;
+    const id = demoId('obs', observation.key);
     await put('observation', prisma.fieldObservation, id, {
-      forestId: `demo-forest-${observation.forestKey}`,
-      zoneId: observation.zoneKey ? `demo-zone-${observation.zoneKey}` : null,
-      protectedAreaId: observation.protectedAreaKey ? `demo-pa-${observation.protectedAreaKey}` : null,
-      activityId: observation.activityKey ? `demo-act-${observation.activityKey}` : null,
-      inspectionId: observation.inspectionKey ? `demo-insp-${observation.inspectionKey}` : null,
+      forestId: demoId('forest', observation.forestKey),
+      zoneId: observation.zoneKey ? demoId('zone', observation.zoneKey) : null,
+      protectedAreaId: observation.protectedAreaKey ? demoId('pa', observation.protectedAreaKey) : null,
+      activityId: observation.activityKey ? demoId('act', observation.activityKey) : null,
+      inspectionId: observation.inspectionKey ? demoId('insp', observation.inspectionKey) : null,
       category: observation.category,
       severity: observation.severity,
       title: observation.title,
@@ -3966,8 +3992,8 @@ async function seedObservations(userIds: Map<string, string>): Promise<void> {
       longitude: observation.longitude,
       accuracyM: observation.accuracyM,
       source: GpsSource.SEED_DEMO,
-      forestId: `demo-forest-${observation.forestKey}`,
-      zoneId: observation.zoneKey ? `demo-zone-${observation.zoneKey}` : null,
+      forestId: demoId('forest', observation.forestKey),
+      zoneId: observation.zoneKey ? demoId('zone', observation.zoneKey) : null,
       observationId: id,
       recordedById: userIds.get(observation.observer),
       recordedAt: daysFromNow(observation.capturedDays, 9),
@@ -4030,11 +4056,11 @@ async function seedFieldSessions(userIds: Map<string, string>): Promise<void> {
   ];
 
   for (const session of sessions) {
-    await put('field session', prisma.fieldSession, `demo-fs-${session.key}`, {
+    await put('field session', prisma.fieldSession, demoId('fs', session.key), {
       userId: userIds.get(session.user) as string,
-      activityId: session.activity ? `demo-act-${session.activity}` : null,
-      forestId: `demo-forest-${session.forest}`,
-      zoneId: `demo-zone-${session.zone}`,
+      activityId: session.activity ? demoId('act', session.activity) : null,
+      forestId: demoId('forest', session.forest),
+      zoneId: demoId('zone', session.zone),
       status: session.status,
       startedAt: daysFromNow(session.startDays, 7),
       endedAt: session.endDays === undefined ? null : daysFromNow(session.endDays, 15),
@@ -4050,7 +4076,7 @@ async function seedFieldSessions(userIds: Map<string, string>): Promise<void> {
       }),
       notes: session.notes,
       syncStatus: SyncStatus.SYNCED,
-      clientRef: `demo-session-${session.key}`,
+      clientRef: demoId('session', session.key),
     });
   }
 }
@@ -4179,7 +4205,7 @@ async function seedEvidence(userIds: Map<string, string>): Promise<void> {
   ];
 
   for (const item of evidence) {
-    await put('evidence', prisma.evidence, `demo-evid-${item.key}`, {
+    await put('evidence', prisma.evidence, demoId('evid', item.key), {
       type: item.type,
       source: EvidenceSource.FILE_UPLOAD,
       title: item.title,
@@ -4193,15 +4219,15 @@ async function seedEvidence(userIds: Map<string, string>): Promise<void> {
       locationAccuracyM: 6.2,
       capturedAt: daysFromNow(item.capturedDays, 11),
       gpsSource: GpsSource.SEED_DEMO,
-      inspectionId: item.inspection ? `demo-insp-${item.inspection}` : null,
-      activityId: item.activity ? `demo-act-${item.activity}` : null,
-      observationId: item.observation ? `demo-obs-${item.observation}` : null,
-      violationId: item.violation ? `demo-vio-${item.violation}` : null,
-      permitId: item.permit ? `demo-permit-${item.permit}` : null,
-      companyId: item.company ? `demo-co-${item.company}` : null,
+      inspectionId: item.inspection ? demoId('insp', item.inspection) : null,
+      activityId: item.activity ? demoId('act', item.activity) : null,
+      observationId: item.observation ? demoId('obs', item.observation) : null,
+      violationId: item.violation ? demoId('vio', item.violation) : null,
+      permitId: item.permit ? demoId('permit', item.permit) : null,
+      companyId: item.company ? demoId('co', item.company) : null,
       uploadedById: item.uploader === 'company' ? actorForCompany(userIds, item.company) : (userIds.get(item.uploader) as string),
       syncStatus: SyncStatus.SYNCED,
-      clientRef: `demo-evidence-${item.key}`,
+      clientRef: demoId('evidence', item.key),
     });
   }
 }
@@ -4285,7 +4311,7 @@ async function seedReports(userIds: Map<string, string>): Promise<void> {
   ];
 
   for (const report of reports) {
-    await put('report', prisma.report, `demo-report-${report.key}`, {
+    await put('report', prisma.report, demoId('report', report.key), {
       reference: `DEMO-REP-2026-${report.key.slice(1).padStart(4, '0')}`,
       type: report.type,
       format: ReportFormat.JSON,
@@ -4300,9 +4326,9 @@ async function seedReports(userIds: Map<string, string>): Promise<void> {
       summaryJson: JSON.stringify(report.summary),
       dateFrom: daysFromNow(-180),
       dateTo: daysFromNow(0),
-      forestId: report.forest ? `demo-forest-${report.forest}` : null,
-      companyId: report.company ? `demo-co-${report.company}` : null,
-      permitId: report.permit ? `demo-permit-${report.permit}` : null,
+      forestId: report.forest ? demoId('forest', report.forest) : null,
+      companyId: report.company ? demoId('co', report.company) : null,
+      permitId: report.permit ? demoId('permit', report.permit) : null,
       generatedById: userIds.get(report.generatedBy) as string,
       generatedAt: daysFromNow(report.createdDays, 12),
       isDemo: true,
@@ -4312,7 +4338,7 @@ async function seedReports(userIds: Map<string, string>): Promise<void> {
 
 async function seedIntelligence(userIds: Map<string, string>): Promise<void> {
   const requestedById = userIds.get('officer') as string;
-  const analysisId = 'demo-analysis-0001';
+  const analysisId = demoId('analysis', '0001');
   const startedAt = daysFromNow(-1, 4);
 
   const dataset = await buildIntelligenceDataset(prisma as unknown as PrismaService, {}, { periodDays: 365 });
@@ -4347,7 +4373,7 @@ async function seedIntelligence(userIds: Map<string, string>): Promise<void> {
   let index = 0;
   for (const finding of outcome.findings) {
     index += 1;
-    const id = `demo-alert-${String(index).padStart(4, '0')}`;
+    const id = demoId('alert', String(index).padStart(4, '0'));
     const reference = `DEMO-ALR-2026-${String(index).padStart(4, '0')}`;
     const record = {
       type: finding.type,
@@ -4377,6 +4403,10 @@ async function seedIntelligence(userIds: Map<string, string>): Promise<void> {
       reference,
       analysisId,
       detectedAt: dataset.generatedAt,
+      // The alert console and the verification script both key demonstration
+      // rows on this flag — an alert that missed it would be readable as a real
+      // regulatory signal.
+      isDemo: true,
     });
     created.push({ id, reference, type: finding.type, riskLevel: finding.riskLevel });
 

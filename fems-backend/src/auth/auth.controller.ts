@@ -23,6 +23,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService, type RequestMeta } from './auth.service';
 import { CurrentUser, Public, type AuthenticatedUser } from '../common/decorators';
+import { appConfig } from '../config/configuration';
 import { ChangePasswordDto, LoginDto, LogoutDto, RefreshTokenDto } from './dto/login.dto';
 import {
   ForgotPasswordDto,
@@ -36,6 +37,15 @@ import {
   UpdateNotificationPreferenceDto,
   UpdateProfileDto,
 } from './dto/profile.dto';
+
+/**
+ * Per-route rate limits for the authentication surface. Read once at module load
+ * from the same configuration the global throttle uses, so an environment that
+ * must absorb a burst (a load test, the end-to-end suite) raises the numbers
+ * instead of switching the guard off.
+ */
+const AUTH_THROTTLE_LIMIT = appConfig().security.authThrottleLimit;
+const AUTH_STRICT_THROTTLE_LIMIT = appConfig().security.authStrictThrottleLimit;
 
 function metaFrom(request: Request, ip: string): RequestMeta {
   return {
@@ -51,7 +61,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Create a Forest Explorer or Company Representative account',
     description:
@@ -66,7 +76,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Sign in and receive an access/refresh token pair',
     description:
@@ -109,7 +119,7 @@ export class AuthController {
   @Public()
   @Post('email-verification/verify')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Confirm an email address with the emailed code',
     description: 'Activates the account and immediately returns a token pair so the app can continue sign-in.',
@@ -121,7 +131,7 @@ export class AuthController {
   @Public()
   @Post('email-verification/resend')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_STRICT_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({ summary: 'Re-send the email verification code (invalidates previous codes)' })
   async resendVerification(@Body() dto: ResendVerificationDto, @Req() request: Request, @Ip() ip: string) {
     return this.auth.resendVerification(dto.email, metaFrom(request, ip));
@@ -130,7 +140,7 @@ export class AuthController {
   @Public()
   @Post('password/forgot')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_STRICT_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Request a password reset code',
     description: 'Always returns the same message to prevent account enumeration.',
@@ -142,7 +152,7 @@ export class AuthController {
   @Public()
   @Post('password/reset')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: AUTH_THROTTLE_LIMIT, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Complete a password reset',
     description: 'The reset code is single-use and every active session is revoked on success.',

@@ -249,6 +249,17 @@ export class PermitsService {
   // ---------------------------------------------------------------- writes
 
   async create(user: AuthenticatedUser, dto: CreatePermitDto) {
+    // An account that only sees its own file never chooses the applicant: the
+    // service takes the company from the session. Naming another company in the
+    // payload is refused outright rather than silently rewritten, so a caller
+    // cannot believe an application was filed on someone else's behalf.
+    if (dto.companyId && !canReadAll(user, 'permits') && dto.companyId !== user.companyId) {
+      throw new ForbiddenException({
+        code: 'COMPANY_SCOPE_FORBIDDEN',
+        message: 'An application can only be filed for the company attached to your account.',
+      });
+    }
+
     const companyId = canReadAll(user, 'permits') && dto.companyId ? dto.companyId : user.companyId;
     if (!companyId) {
       throw new BadRequestException({

@@ -13,6 +13,7 @@ import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { backendRoot, loadDotEnv } from './lib/schema-tools.mjs';
+import { demoId, SEEDED_ADMIN_ID, SEEDED_ANALYSIS_ID } from './lib/demo-id.mjs';
 
 loadDotEnv(path.join(backendRoot, '.env'));
 
@@ -79,34 +80,77 @@ try {
   check('the eight roles have a demonstration account', users >= 8, `${users} accounts`);
 
   // --- labels ------------------------------------------------------------
-  const unlabelled = {
-    forests: await prisma.forest.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    permits: await prisma.exploitationPermit.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    activities: await prisma.exploitationActivity.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    inspections: await prisma.inspection.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    violations: await prisma.environmentalViolation.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    payments: await prisma.payment.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-    gis: await prisma.gISLocation.count({ where: { id: { startsWith: 'demo-' }, isDemo: false } }),
-  };
-  const unlabelledTotal = Object.values(unlabelled).reduce((sum, value) => sum + value, 0);
-  check('every seeded row carries isDemo: true', unlabelledTotal === 0, JSON.stringify(unlabelled));
-
-  const demoRefs = await prisma.$transaction([
+  // Ids are UUIDs (the API validates references with `@IsUUID()`), so "is this
+  // row part of the demo dataset?" is no longer answered by the primary key. It
+  // is answered by the two markers the schema carries: the `isDemo` flag and the
+  // human-readable `DEMO-` reference. On the models that have both, the two sets
+  // must be exactly the same size, so neither marker can drift.
+  const labelled = await prisma.$transaction([
+    prisma.exploitationPermit.count({ where: { isDemo: true } }),
     prisma.exploitationPermit.count({ where: { isDemo: true, permitNumber: { startsWith: 'DEMO-' } } }),
+    prisma.exploitationActivity.count({ where: { isDemo: true } }),
     prisma.exploitationActivity.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-ACT-' } } }),
+    prisma.inspection.count({ where: { isDemo: true } }),
     prisma.inspection.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-INS-' } } }),
+    prisma.environmentalViolation.count({ where: { isDemo: true } }),
     prisma.environmentalViolation.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-VIO-' } } }),
+    prisma.payment.count({ where: { isDemo: true } }),
     prisma.payment.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-PAY-' } } }),
+    prisma.report.count({ where: { isDemo: true } }),
+    prisma.report.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-REP-' } } }),
+    prisma.aIAlert.count({ where: { isDemo: true } }),
+    prisma.aIAlert.count({ where: { isDemo: true, reference: { startsWith: 'DEMO-ALR-' } } }),
+  ]);
+  const labelledPairs = [
+    ['permits', labelled[0], labelled[1]],
+    ['activities', labelled[2], labelled[3]],
+    ['inspections', labelled[4], labelled[5]],
+    ['violations', labelled[6], labelled[7]],
+    ['payments', labelled[8], labelled[9]],
+    ['reports', labelled[10], labelled[11]],
+    ['alerts', labelled[12], labelled[13]],
+  ];
+  for (const [label, flagged, referenced] of labelledPairs) {
+    check(
+      `every demo ${label} row is flagged and carries a DEMO- reference`,
+      flagged > 0 && flagged === referenced,
+      `${referenced} reference(s) / ${flagged} flagged row(s)`,
+    );
+  }
+
+  // A seeded row is never mistaken for a regulatory record: no un-flagged row
+  // may reuse a demonstration reference.
+  const leakReference = await prisma.$transaction([
+    prisma.exploitationPermit.count({ where: { isDemo: false, permitNumber: { startsWith: 'DEMO-' } } }),
+    prisma.exploitationActivity.count({ where: { isDemo: false, reference: { startsWith: 'DEMO-ACT-' } } }),
+    prisma.payment.count({ where: { isDemo: false, reference: { startsWith: 'DEMO-PAY-' } } }),
   ]);
   check(
-    'human-readable references are prefixed DEMO-',
-    demoRefs.every((count) => count > 0),
-    demoRefs.join('/'),
+    'no un-flagged row carries a DEMO- reference',
+    leakReference.every((count) => count === 0),
+    leakReference.join('/'),
+  );
+
+  // The identifier helper exists twice — once in the seed (the writer) and once
+  // in scripts/lib/demo-id.mjs (the verifier). Looking rows up by the computed
+  // value proves the two copies still agree.
+  const mirrored = await prisma.$transaction([
+    prisma.user.count({ where: { id: SEEDED_ADMIN_ID } }),
+    prisma.aIAnalysis.count({ where: { id: SEEDED_ANALYSIS_ID } }),
+  ]);
+  check(
+    'the seed and the verification scripts derive the same identifiers',
+    mirrored.every((count) => count === 1),
+    `admin=${mirrored[0]} analysis=${mirrored[1]}`,
+  );
+  check(
+    'demoId() produces RFC 4122 version-5 UUIDs',
+    /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(demoId('forest', 'probe')),
   );
 
   // --- coordinates -------------------------------------------------------
   const points = await prisma.gISLocation.findMany({
-    where: { id: { startsWith: 'demo-' } },
+    where: { isDemo: true },
     select: { latitude: true, longitude: true, label: true },
   });
   const outside = points.filter((point) => !inCameroon(point.latitude, point.longitude));
@@ -146,14 +190,14 @@ try {
   check('every successful seeded payment has a receipt number', successfulWithoutReceipt === 0);
 
   // --- AI ----------------------------------------------------------------
-  const alertStatuses = await prisma.aIAlert.groupBy({ by: ['status'], _count: true, where: { id: { startsWith: 'demo-alert' } } });
+  const alertStatuses = await prisma.aIAlert.groupBy({ by: ['status'], _count: true, where: { isDemo: true } });
   check(
     'seeded alerts are untouched NEW signals (no fabricated human decision)',
     alertStatuses.length === 1 && alertStatuses[0].status === 'NEW',
     alertStatuses.map((row) => `${row.status}=${row._count}`).join(' '),
   );
 
-  const detectors = await prisma.aIAlert.groupBy({ by: ['detector'], _count: true, where: { id: { startsWith: 'demo-alert' } } });
+  const detectors = await prisma.aIAlert.groupBy({ by: ['detector'], _count: true, where: { isDemo: true } });
   check(
     'seeded alerts come from the local rule engine',
     detectors.length === 1 && detectors[0].detector === 'LOCAL_RULE_ENGINE',
@@ -161,7 +205,7 @@ try {
   );
 
   const analysis = await prisma.aIAnalysis.findUnique({
-    where: { id: 'demo-analysis-0001' },
+    where: { id: SEEDED_ANALYSIS_ID },
     select: { status: true, model: true, resultJson: true, summary: true },
   });
   const result = analysis?.resultJson ? JSON.parse(analysis.resultJson) : null;
@@ -176,12 +220,12 @@ try {
     typeof analysis?.summary === 'string' && analysis.summary.includes('ne désignent aucune personne coupable'),
   );
 
-  const alertLinks = await prisma.aIAlert.count({ where: { id: { startsWith: 'demo-alert' }, analysisId: 'demo-analysis-0001' } });
+  const alertLinks = await prisma.aIAlert.count({ where: { isDemo: true, analysisId: SEEDED_ANALYSIS_ID } });
   check('every seeded alert is linked to the analysis that produced it', alertLinks > 0, `${alertLinks} alert(s)`);
 
   // --- referential sanity ------------------------------------------------
   const orphanAlerts = await prisma.aIAlert.count({
-    where: { id: { startsWith: 'demo-alert' }, OR: [{ entityType: null }, { entityId: null }] },
+    where: { isDemo: true, OR: [{ entityType: null }, { entityId: null }] },
   });
   check('alerts carry the record they point at', orphanAlerts === 0, `${orphanAlerts} alert(s) without a subject`);
 

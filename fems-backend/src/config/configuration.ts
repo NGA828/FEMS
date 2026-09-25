@@ -58,7 +58,15 @@ export interface AppConfig {
     maxLoginAttempts: number;
     loginLockMinutes: number;
   };
-  security: { bcryptRounds: number; throttleTtlSeconds: number; throttleLimit: number };
+  security: {
+    bcryptRounds: number;
+    throttleTtlSeconds: number;
+    throttleLimit: number;
+    /** Limit for the authentication routes (`POST /auth/login` and friends). */
+    authThrottleLimit: number;
+    /** Stricter limit for the routes that send something to a user. */
+    authStrictThrottleLimit: number;
+  };
   storage: {
     driver: 'local' | 's3';
     localDir: string;
@@ -133,6 +141,11 @@ export function appConfig(): AppConfig {
       bcryptRounds: num(process.env.BCRYPT_ROUNDS, 10),
       throttleTtlSeconds: num(process.env.THROTTLE_TTL_SECONDS, 60),
       throttleLimit: num(process.env.THROTTLE_LIMIT, 120),
+      // Auth routes are rate limited harder than the rest of the API because
+      // they are the brute-force surface. The limits stay configurable so a
+      // test run can raise them instead of disabling the guard.
+      authThrottleLimit: num(process.env.THROTTLE_AUTH_LIMIT, 10),
+      authStrictThrottleLimit: num(process.env.THROTTLE_AUTH_STRICT_LIMIT, 5),
     },
     storage: {
       driver: (process.env.STORAGE_DRIVER as 'local' | 's3') ?? 'local',
