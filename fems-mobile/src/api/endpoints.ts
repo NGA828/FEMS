@@ -12,11 +12,16 @@ import type {
   AiAnalysis,
   AiCatalogue,
   AiConversation,
+  AuditAction,
+  AuditSeverity,
   AiStatus,
   AlertStatistics,
   AssistantAnswer,
   AuditEntry,
   Company,
+  CompanyDocument,
+  CompanyStatus,
+  CompanyType,
   DirectoryUser,
   Equipment,
   Evidence,
@@ -70,6 +75,8 @@ export interface CatalogueEntry {
   label: string;
   description?: string;
   level?: number;
+  /** Number of permissions the role grants (returned by /roles/catalogue). */
+  permissionCount?: number;
   permissions?: string[];
 }
 
@@ -181,16 +188,34 @@ export const usersApi = {
 // ------------------------------------------------------------------- companies
 
 export const companiesApi = {
-  list: (query: PageQuery & { status?: string; type?: string; region?: string } = {}) =>
+  list: (query: PageQuery & { status?: string; type?: string; region?: string; search?: string } = {}) =>
     api.list<Company>('/companies', { params: query as never }),
   get: (id: string) => api.get<Company>(`/companies/${id}`).then((r) => r.data),
   mine: () => api.get<Company>('/companies/me').then((r) => r.data),
   update: (id: string, payload: Record<string, unknown>) => api.patch<Company>(`/companies/${id}`, payload).then((r) => r.data),
-  verify: (id: string, payload: { approved: boolean; reason?: string }) => api.post<Company>(`/companies/${id}/verify`, payload).then((r) => r.data),
-  statistics: () => api.get<{ total: number; byStatus: { status: string; count: number }[]; byType: { type: string; count: number }[]; verified: number; pending: number }>('/companies/statistics').then((r) => r.data),
-  documents: (id: string) => api.get<{ id: string; type: string; title: string; fileKey: string; mimeType: string; sizeBytes: number; isVerified: boolean; createdAt: string }[]>(`/companies/${id}/documents`).then((r) => r.data),
-  addDocument: (id: string, payload: { type: string; title: string; fileKey: string; mimeType: string; sizeBytes: number; notes?: string }) =>
-    api.post(`/companies/${id}/documents`, payload).then((r) => r.data),
+  /** Verify (approve) or reject the registration file. A rejection needs a reason. */
+  verify: (id: string, payload: { approved: boolean; rejectionReason?: string; notes?: string }) =>
+    api.post<Company>(`/companies/${id}/verify`, payload).then((r) => r.data),
+  /** Suspend or restore a company. The reason is written to the audit trail. */
+  setStatus: (id: string, payload: { status: CompanyStatus; reason: string }) =>
+    api.post<Company>(`/companies/${id}/status`, payload).then((r) => r.data),
+  statistics: () =>
+    api
+      .get<{
+        total: number;
+        byStatus: { status: CompanyStatus; count: number }[];
+        byType: { type: CompanyType; count: number }[];
+        byRegion: { region: string; count: number }[];
+        companiesWithViolations: { id: string; name: string; violations: number }[];
+      }>('/companies/statistics')
+      .then((r) => r.data),
+  documents: (id: string) => api.get<CompanyDocument[]>(`/companies/${id}/documents`).then((r) => r.data),
+  addDocument: (id: string, payload: { type: string; title: string; fileKey: string; mimeType: string; sizeBytes: number; notes?: string; expiresAt?: string }) =>
+    api.post<CompanyDocument>(`/companies/${id}/documents`, payload).then((r) => r.data),
+  verifyDocument: (id: string, documentId: string, payload: { isVerified: boolean; notes?: string }) =>
+    api.patch<CompanyDocument>(`/companies/${id}/documents/${documentId}/verify`, payload).then((r) => r.data),
+  removeDocument: (id: string, documentId: string) =>
+    api.delete<{ message: string }>(`/companies/${id}/documents/${documentId}`).then((r) => r.data),
 };
 
 // --------------------------------------------------------------------- forests
@@ -317,6 +342,7 @@ export const activitiesApi = {
     api.list<Equipment>('/equipment', { params: query as never }),
   createEquipment: (payload: Record<string, unknown>) => api.post<Equipment>('/equipment', payload).then((r) => r.data),
   updateEquipment: (id: string, payload: Record<string, unknown>) => api.patch<Equipment>(`/equipment/${id}`, payload).then((r) => r.data),
+  deleteEquipment: (id: string) => api.delete<{ message: string }>(`/equipment/${id}`).then((r) => r.data),
 };
 
 export interface OfflineActivityRecord {
@@ -549,7 +575,17 @@ export const reportsApi = {
   catalogue: () => api.get<ReportCatalogue>('/reports/catalogue').then((r) => r.data),
   statistics: () => api.get<ReportStatistics>('/reports/statistics').then((r) => r.data),
   preview: (payload: { type: string; from?: string; to?: string; forestId?: string; companyId?: string; permitId?: string; maxRows?: number }) =>
-    api.post<{ columns: { key: string; label: string }[]; rows: (string | number | null)[][]; summary: { label: string; value: string }[]; rowCount: number; truncated: boolean }>(
+    api.post<{
+      type: string;
+      title: string;
+      columns: { key: string; label: string }[];
+      rows: (string | number | null)[][];
+      summary: { label: string; value: string }[];
+      notes: string[];
+      rowCount: number;
+      totalRows: number;
+      truncated: boolean;
+    }>(
       '/reports/preview',
       payload,
       { timeoutMs: 45_000 },
@@ -599,9 +635,28 @@ export const gisApi = {
 // ----------------------------------------------------------------------- audit
 
 export const auditApi = {
-  list: (query: PageQuery & { action?: string; severity?: string; actorId?: string; entityType?: string; from?: string; to?: string } = {}) =>
-    api.list<AuditEntry>('/audit', { params: query as never }),
-  summary: () => api.get<{ total: number; bySeverity: { severity: string; count: number }[]; byAction: { action: string; count: number }[] }>('/audit/summary').then((r) => r.data),
+  list: (
+    query: PageQuery & {
+      action?: string;
+      severity?: string;
+      actorId?: string;
+      entityType?: string;
+      entityId?: string;
+      search?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => api.list<AuditEntry>('/audit', { params: query as never }),
+  summary: (days?: number) =>
+    api
+      .get<{
+        windowDays: number;
+        total: number;
+        byAction: { action: AuditAction; count: number }[];
+        bySeverity: { severity: AuditSeverity; count: number }[];
+        mostActiveUsers: { userId: string; name: string; email: string; count: number }[];
+      }>('/audit/summary', { params: days ? { days } : undefined })
+      .then((r) => r.data),
 };
 
 // ----------------------------------------------------------------------- files

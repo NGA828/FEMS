@@ -40,6 +40,7 @@ import {
   type ReportQuery,
   type ViolationQuery,
 } from './endpoints';
+import type { CompanyStatus, NotificationPreference } from './types';
 
 // ------------------------------------------------------------------ key space
 
@@ -97,11 +98,15 @@ export const queryKeys = {
   company: (id: string) => ['company', id] as const,
   myCompany: ['companies', 'me'] as const,
   companyDocuments: (id: string) => ['company', id, 'documents'] as const,
+  companyStatistics: ['companies', 'statistics'] as const,
   users: (query?: unknown) => ['users', query] as const,
   user: (id: string) => ['user', id] as const,
   roles: ['roles'] as const,
+  roleList: ['roles', 'list'] as const,
   audit: (query?: unknown) => ['audit', query] as const,
   auditSummary: ['audit', 'summary'] as const,
+  sessions: ['auth', 'sessions'] as const,
+  notificationPreferences: ['auth', 'notification-preferences'] as const,
 };
 
 /** Invalidates every query under the given prefixes after a mutation. */
@@ -630,11 +635,23 @@ export function useGenerateReport() {
   });
 }
 
-export function useSendReport(id: string) {
+/**
+ * Shares a ready report. The report id travels with the call so a library screen
+ * can share whichever row the user picked without creating a hook per row.
+ */
+export function useSendReport() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { audience?: 'OFFICERS' | 'COMPANIES'; message?: string }) => reportsApi.send(id, payload),
-    onSuccess: () => invalidate(client, [queryKeys.report(id)]),
+    mutationFn: (input: { id: string; payload: { audience?: 'OFFICERS' | 'COMPANIES'; message?: string } }) =>
+      reportsApi.send(input.id, input.payload),
+    onSuccess: (_result, input) => invalidate(client, [queryKeys.report(input.id), queryKeys.reports(), queryKeys.notifications()]),
+  });
+}
+
+/** Builds the dataset behind a report type without storing a file. */
+export function useReportPreview() {
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof reportsApi.preview>[0]) => reportsApi.preview(payload),
   });
 }
 
@@ -742,10 +759,57 @@ export function useCompanyDocuments(id: string | null) {
 export function useVerifyCompany() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; approved: boolean; reason?: string }) =>
-      companiesApi.verify(input.id, { approved: input.approved, reason: input.reason }),
-    onSuccess: () => invalidate(client, [queryKeys.companies(), queryKeys.myCompany]),
+    mutationFn: (input: { id: string; approved: boolean; rejectionReason?: string; notes?: string }) =>
+      companiesApi.verify(input.id, {
+        approved: input.approved,
+        rejectionReason: input.rejectionReason,
+        notes: input.notes,
+      }),
+    onSuccess: (_result, input) =>
+      invalidate(client, [queryKeys.companies(), queryKeys.company(input.id), queryKeys.myCompany, queryKeys.companyStatistics]),
   });
+}
+
+/** Suspends or restores a company registration; the reason is audited. */
+export function useSetCompanyStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; status: CompanyStatus; reason: string }) => companiesApi.setStatus(input.id, { status: input.status, reason: input.reason }),
+    onSuccess: (_result, input) =>
+      invalidate(client, [queryKeys.companies(), queryKeys.company(input.id), queryKeys.companyStatistics]),
+  });
+}
+
+export function useAddCompanyDocument() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof companiesApi.addDocument>[1] & { companyId: string }) => {
+      const { companyId, ...payload } = input;
+      return companiesApi.addDocument(companyId, payload);
+    },
+    onSuccess: (_result, input) => invalidate(client, [queryKeys.companyDocuments(input.companyId), queryKeys.company(input.companyId)]),
+  });
+}
+
+export function useVerifyCompanyDocument() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId: string; documentId: string; isVerified: boolean; notes?: string }) =>
+      companiesApi.verifyDocument(input.companyId, input.documentId, { isVerified: input.isVerified, notes: input.notes }),
+    onSuccess: (_result, input) => invalidate(client, [queryKeys.companyDocuments(input.companyId), queryKeys.company(input.companyId)]),
+  });
+}
+
+export function useRemoveCompanyDocument() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { companyId: string; documentId: string }) => companiesApi.removeDocument(input.companyId, input.documentId),
+    onSuccess: (_result, input) => invalidate(client, [queryKeys.companyDocuments(input.companyId), queryKeys.company(input.companyId)]),
+  });
+}
+
+export function useCompanyStatistics() {
+  return useQuery({ queryKey: queryKeys.companyStatistics, queryFn: companiesApi.statistics, staleTime: 60_000 });
 }
 
 export function useUsers(query: PageQuery & { role?: string; status?: string } = {}) {
@@ -758,6 +822,11 @@ export function useUser(id: string | null) {
 
 export function useRoles() {
   return useQuery({ queryKey: queryKeys.roles, queryFn: usersApi.roles, staleTime: 600_000 });
+}
+
+/** Roles with their permission grants and how many accounts hold them. */
+export function useRoleList() {
+  return useQuery({ queryKey: queryKeys.roleList, queryFn: usersApi.roleList, staleTime: 600_000 });
 }
 
 export function useCreateUser() {
@@ -786,8 +855,53 @@ export function useResetUserPassword() {
 
 // ----------------------------------------------------------------------- audit
 
-export function useAuditLog(query: PageQuery & { action?: string; severity?: string; entityType?: string } = {}) {
+export function useAuditLog(
+  query: PageQuery & {
+    action?: string;
+    severity?: string;
+    entityType?: string;
+    entityId?: string;
+    actorId?: string;
+    search?: string;
+    from?: string;
+    to?: string;
+  } = {},
+) {
   return useQuery({ queryKey: queryKeys.audit(query), queryFn: () => auditApi.list(query), staleTime: 30_000 });
+}
+
+export function useAuditSummary(days?: number) {
+  return useQuery({ queryKey: [...queryKeys.auditSummary, days ?? 30], queryFn: () => auditApi.summary(days), staleTime: 60_000 });
+}
+
+export function useUpdateEquipment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; payload: Record<string, unknown> }) => activitiesApi.updateEquipment(input.id, input.payload),
+    onSuccess: () => invalidate(client, [queryKeys.equipment()]),
+  });
+}
+
+export function useDeleteEquipment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => activitiesApi.deleteEquipment(id),
+    onSuccess: () => invalidate(client, [queryKeys.equipment()]),
+  });
+}
+
+// ------------------------------------------------------------------ preferences
+
+export function useNotificationPreferences() {
+  return useQuery({ queryKey: queryKeys.notificationPreferences, queryFn: authApi.notificationPreferences, staleTime: 300_000 });
+}
+
+export function useUpdateNotificationPreference() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (preference: NotificationPreference) => authApi.updateNotificationPreference(preference),
+    onSuccess: () => invalidate(client, [queryKeys.notificationPreferences]),
+  });
 }
 
 // ----------------------------------------------------------------------- files
@@ -816,13 +930,13 @@ export function useChangePassword() {
 }
 
 export function useSessions() {
-  return useQuery({ queryKey: ['auth', 'sessions'], queryFn: authApi.sessions, staleTime: 30_000 });
+  return useQuery({ queryKey: queryKeys.sessions, queryFn: authApi.sessions, staleTime: 30_000 });
 }
 
 export function useRevokeSession() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (sessionId: string) => authApi.revokeSession(sessionId),
-    onSuccess: () => invalidate(client, [['auth', 'sessions']]),
+    onSuccess: () => invalidate(client, [queryKeys.sessions]),
   });
 }

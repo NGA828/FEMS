@@ -61,7 +61,10 @@ export class CompaniesService {
       status: query.status,
       type: query.type,
       region: query.region,
-      ...scope,
+      // `companyScope` returns the caller's `companyId`, which is a column on most
+      // models but not on `Company` itself — there the row *is* the company, so the
+      // scope becomes a primary-key filter.
+      ...(scope.companyId ? { id: scope.companyId } : {}),
       OR: query.search
         ? [
             { name: { contains: query.search } },

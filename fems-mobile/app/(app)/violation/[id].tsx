@@ -47,6 +47,7 @@ import {
   useConfirm,
   useToast,
 } from '../../../src/ui';
+import type { Violation } from '../../../src/api/types';
 import { formatCurrency, formatDate, formatDateTime, formatRelative, severityLabel, violationStatusLabel } from '../../../src/lib/format';
 
 const ACTION_COPY: Record<string, { label: string; help: string; requiresReason: boolean }> = {
@@ -108,12 +109,14 @@ export default function ViolationDetailScreen() {
     try {
       await action.mutateAsync({
         action: choice,
-        reason: reason.trim() || undefined,
-        penaltyAmountXAF: penalty ? Number(penalty) : undefined,
-        estimatedDamageXAF: damage ? Number(damage) : undefined,
-        remediationRequired: remediation.trim() ? true : undefined,
-        remediationNotes: remediation.trim() || undefined,
-        remediationDeadline: remediationDeadline ? new Date(remediationDeadline).toISOString() : undefined,
+        payload: {
+          reason: reason.trim() || undefined,
+          penaltyAmountXAF: penalty ? Number(penalty) : undefined,
+          estimatedDamageXAF: damage ? Number(damage) : undefined,
+          remediationRequired: remediation.trim() ? true : undefined,
+          remediationNotes: remediation.trim() || undefined,
+          remediationDeadline: remediationDeadline ? new Date(remediationDeadline).toISOString() : undefined,
+        },
       });
       toast.success('Case updated', `${chosen?.label ?? choice} recorded.`);
       setChoice(null);
@@ -149,7 +152,7 @@ export default function ViolationDetailScreen() {
       await attachEvidence.mutateAsync({
         type: 'PHOTO',
         source: Platform.OS === 'web' ? 'DEVICE_LIBRARY' : 'DEVICE_CAMERA',
-        fileKey: stored.fileKey,
+        fileKey: stored.key,
         mimeType: stored.mimeType,
         sizeBytes: stored.sizeBytes,
         title: `Case evidence ${new Date().toLocaleTimeString()}`,
@@ -384,9 +387,9 @@ export default function ViolationDetailScreen() {
         <Section title="Other cases for this company">
           <Card padded={false}>
             {linked.data.items
-              .filter((entry) => entry.id !== data.id)
+              .filter((entry: Violation) => entry.id !== data.id)
               .slice(0, 4)
-              .map((entry, index) => (
+              .map((entry: Violation, index: number) => (
                 <Pressable
                   key={entry.id}
                   onPress={() => router.push({ pathname: '/violation/[id]', params: { id: entry.id } })}

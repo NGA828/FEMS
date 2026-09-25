@@ -36,7 +36,8 @@
     "verify:access": "node scripts/verify-access-scope.mjs",
     "db:mysql": "node scripts/dev-mysql.mjs start",
     "db:mysql:stop": "node scripts/dev-mysql.mjs stop",
-    "db:mysql:status": "node scripts/dev-mysql.mjs status"
+    "db:mysql:status": "node scripts/dev-mysql.mjs status",
+    "dev:setup": "node scripts/dev-setup.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.6",

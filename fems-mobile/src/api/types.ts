@@ -42,6 +42,10 @@ export interface RoleSummary {
   level: number;
   assignedAt?: IsoDate;
   expiresAt?: IsoDate | null;
+  /** Grant list — returned by `GET /roles`, absent on the roles attached to a user row. */
+  permissions?: string[];
+  /** Accounts holding the role — returned by `GET /roles`. */
+  userCount?: number;
 }
 
 export interface AuthUser {
@@ -132,7 +136,48 @@ export interface Company {
   ownerId?: Identifier | null;
   isDemo?: boolean;
   createdAt: IsoDate;
-  _count?: { permits?: number; activities?: number; members?: number; documents?: number };
+  documents?: CompanyDocument[];
+  members?: {
+    id: Identifier;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string | null;
+    jobTitle?: string | null;
+    status: UserStatus;
+    userRoles?: { role: { name: RoleName; label: string } }[];
+  }[];
+  verifiedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
+  _count?: {
+    permits?: number;
+    activities?: number;
+    members?: number;
+    documents?: number;
+    payments?: number;
+    inspections?: number;
+    violations?: number;
+  };
+}
+
+/** A registration/administrative document attached to a company file. */
+export interface CompanyDocument {
+  id: Identifier;
+  companyId: Identifier;
+  type: DocumentType;
+  title: string;
+  fileUrl?: string | null;
+  fileKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksum?: string | null;
+  isVerified: boolean;
+  verifiedById?: Identifier | null;
+  verifiedAt?: IsoDate | null;
+  notes?: string | null;
+  expiresAt?: IsoDate | null;
+  uploadedById?: Identifier;
+  createdAt: IsoDate;
+  uploadedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
 }
 
 // --------------------------------------------------------------------- forests
@@ -374,8 +419,13 @@ export interface Equipment {
   capacityM3?: Numeric | null;
   operatorName?: string | null;
   notes?: string | null;
+  acquiredAt?: IsoDate | null;
+  lastMaintenanceAt?: IsoDate | null;
+  nextMaintenanceAt?: IsoDate | null;
   isDemo?: boolean;
+  createdAt?: IsoDate;
   company?: CompanySummary | null;
+  createdBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
   _count?: { usage?: number };
 }
 
@@ -678,10 +728,16 @@ export interface Violation {
   activity?: Pick<ExploitationActivity, 'id' | 'reference' | 'activityType' | 'status'> | null;
   inspection?: Pick<Inspection, 'id' | 'reference' | 'status' | 'outcome'> | null;
   detectedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName' | 'email'> | null;
+  observation?: Pick<FieldObservation, 'id' | 'title' | 'category'> | null;
+  resolvedById?: Identifier | null;
+  resolvedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
   evidences?: Evidence[];
   payments?: Payment[];
   penalty?: ViolationPenalty;
   remediationOverdue?: boolean;
+  /** Transitions the API exposes for this case and this caller. */
+  actions?: { action: string; label?: string; description?: string; targetStatus?: ViolationStatus; requiresReason?: boolean }[];
+  linkedAlerts?: { id: Identifier; reference: string; title: string; status: AlertStatus; riskLevel: RiskLevel }[];
 }
 
 // -------------------------------------------------------------------------- AI
@@ -786,7 +842,36 @@ export interface AiAnalysis {
   completedAt?: IsoDate | null;
   createdAt?: IsoDate;
   requestedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
+  reviewedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
+  /** Alerts the run raised — each one still needs a human review. */
+  alerts?: AiAlert[];
+  /** `resultJson` parsed by the API. */
+  result?: AiAnalysisResult | null;
   _count?: { alerts?: number };
+}
+
+/** What a detector run recorded about itself. */
+export interface AiAnalysisResult {
+  detectorVersion: string;
+  provider: AiProvider;
+  rulesEvaluated: number;
+  duplicatesSkipped?: number;
+  byRisk?: Record<string, number>;
+  byType?: Record<string, number>;
+  findings?: {
+    code: string;
+    type: string;
+    riskLevel: string;
+    confidence?: number;
+    title: string;
+    entityType?: string | null;
+    entityId?: string | null;
+    reasoning?: string;
+  }[];
+  alertsRaised?: number;
+  warnings?: string[];
+  seeded?: boolean;
+  note?: string;
 }
 
 export interface AiRule {
@@ -925,7 +1010,10 @@ export interface Report {
   summary?: { label: string; value: string }[];
   notes?: string[];
   rowCount?: number;
-  totals?: { amount?: number };
+  /** Rows the dataset contained before the row limit was applied. */
+  totalRows?: number;
+  truncated?: boolean;
+  totals?: Record<string, number>;
 }
 
 export interface ReportCatalogueEntry {
@@ -1085,19 +1173,50 @@ export interface NearbyResult {
 
 // ----------------------------------------------------------------------- audit
 
+export type AuditAction =
+  | 'LOGIN'
+  | 'LOGIN_FAILED'
+  | 'LOGOUT'
+  | 'REGISTER'
+  | 'PASSWORD_RESET'
+  | 'TOKEN_REFRESH'
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'RESTORE'
+  | 'PERMIT_STATUS_CHANGE'
+  | 'PAYMENT_INITIATED'
+  | 'PAYMENT_VERIFIED'
+  | 'PAYMENT_FAILED'
+  | 'FILE_UPLOAD'
+  | 'AI_ANALYSIS'
+  | 'AI_ALERT_REVIEW'
+  | 'ASSISTANT_QUERY'
+  | 'EXPORT'
+  | 'SETTINGS_CHANGE'
+  | 'ROLE_ASSIGNED'
+  | 'ACCOUNT_STATUS_CHANGE';
+
+export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+
 export interface AuditEntry {
   id: Identifier;
   actorId?: Identifier | null;
   actorEmail?: string | null;
-  action: string;
-  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  action: AuditAction;
+  severity: AuditSeverity;
   entityType?: string | null;
   entityId?: Identifier | null;
   description: string;
+  beforeJson?: string | null;
+  afterJson?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
   createdAt: IsoDate;
   actor?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName' | 'email'> | null;
+  /** Parsed by the API alongside the raw JSON columns. */
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------- stats

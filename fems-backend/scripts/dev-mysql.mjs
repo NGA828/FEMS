@@ -51,6 +51,9 @@ function resolveServerDir() {
     path.resolve(backendDir, '..', 'tools', ...PACKAGE_RELATIVE),
     path.resolve(backendDir, '..', '..', 'tools', ...PACKAGE_RELATIVE),
     path.join(process.env.HOME ?? '/home/user', 'tools', ...PACKAGE_RELATIVE),
+    // Persistent install location used by `npm run dev:setup`, which copies the
+    // server out of node_modules so a workspace resync cannot delete it.
+    path.join(process.env.HOME ?? '/home/user', 'mysql-server'),
   ];
   return candidates.find((candidate) => existsSync(path.join(candidate, 'mysqld'))) ?? candidates[0];
 }
