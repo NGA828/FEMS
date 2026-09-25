@@ -579,7 +579,7 @@ export function useAskAssistant() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (payload: Parameters<typeof aiApi.ask>[0]) => aiApi.ask(payload),
-    onSuccess: (answer) => invalidate(client, [queryKeys.conversations(), queryKeys.conversation(answer.conversation.id)]),
+    onSuccess: (answer) => invalidate(client, [queryKeys.conversations(), queryKeys.conversation(answer.conversationId)]),
   });
 }
 

@@ -49,6 +49,10 @@ import type {
   RoleSummary,
   Violation,
   ViolationStatistics,
+  ActivityStatistics,
+  ObservationStatistics,
+  NotificationPreference,
+  PaymentReceipt,
 } from './types';
 
 // --------------------------------------------------------------------- helpers
@@ -148,15 +152,15 @@ export const authApi = {
   updateProfile: (payload: { firstName?: string; lastName?: string; phone?: string; jobTitle?: string; preferredLanguage?: string }) =>
     api.patch<DirectoryUser>('/auth/me', payload).then((r) => r.data),
 
-  sessions: () => api.get<{ id: string; device?: string; ipAddress?: string; createdAt: string; lastUsedAt?: string; current?: boolean }[]>('/auth/sessions').then((r) => r.data),
+  sessions: () =>
+    api.get<{ id: string; userAgent?: string | null; ipAddress?: string | null; createdAt: string; expiresAt?: string; current?: boolean }[]>('/auth/sessions').then((r) => r.data),
 
   revokeSession: (sessionId: string) => api.delete<{ message: string }>(`/auth/sessions/${sessionId}`).then((r) => r.data),
 
-  notificationPreferences: () =>
-    api.get<{ channel: string; enabled: boolean }[]>('/auth/notification-preferences').then((r) => r.data),
+  notificationPreferences: () => api.get<NotificationPreference[]>('/auth/notification-preferences').then((r) => r.data),
 
-  updateNotificationPreferences: (preferences: { channel: string; enabled: boolean }[]) =>
-    api.put<{ channel: string; enabled: boolean }[]>('/auth/notification-preferences', { preferences }).then((r) => r.data),
+  updateNotificationPreference: (preference: NotificationPreference) =>
+    api.put<NotificationPreference>('/auth/notification-preferences', preference).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------- users & roles
@@ -299,7 +303,7 @@ export const activitiesApi = {
   list: (query: ActivityQuery = {}) => api.list<ExploitationActivity>('/activities', { params: query as never }),
   get: (id: string) => api.get<ExploitationActivity>(`/activities/${id}`).then((r) => r.data),
   statistics: (params: { forestId?: string; months?: number; topCompanies?: number } = {}) =>
-    api.get<Record<string, unknown>>('/activities/statistics', { params }).then((r) => r.data),
+    api.get<ActivityStatistics>('/activities/statistics', { params }).then((r) => r.data),
   create: (payload: CreateActivityPayload) => api.post<ExploitationActivity>('/activities', payload).then((r) => r.data),
   update: (id: string, payload: Record<string, unknown>) => api.patch<ExploitationActivity>(`/activities/${id}`, payload).then((r) => r.data),
   act: (id: string, action: string, payload: Record<string, unknown> = {}) =>
@@ -357,7 +361,7 @@ export const paymentsApi = {
     notes?: string;
     clientRef?: string;
   }) => api.post<Payment>('/payments', payload, { retries: 0 }).then((r) => r.data),
-  receipt: (id: string) => api.get<{ reference: string; receiptNumber?: string; amount: number; currency: string; paidAt?: string; purpose: string; company?: string; permitNumber?: string; verificationCode?: string }>(`/payments/${id}/receipt`).then((r) => r.data),
+  receipt: (id: string) => api.get<PaymentReceipt>(`/payments/${id}/receipt`).then((r) => r.data),
   verify: (id: string, notes?: string) => api.post<Payment>(`/payments/${id}/verify`, { notes }).then((r) => r.data),
   simulate: (id: string, outcome: 'SUCCESSFUL' | 'FAILED' | 'CANCELLED', notes?: string) =>
     api.post<Payment>(`/payments/${id}/simulate`, { outcome, notes }).then((r) => r.data),
@@ -458,7 +462,7 @@ export interface CreateObservationPayload {
 export const observationsApi = {
   list: (query: ObservationQuery = {}) => api.list<FieldObservation>('/observations', { params: query as never }),
   get: (id: string) => api.get<FieldObservation>(`/observations/${id}`).then((r) => r.data),
-  statistics: () => api.get<Record<string, unknown>>('/observations/statistics').then((r) => r.data),
+  statistics: () => api.get<ObservationStatistics>('/observations/statistics').then((r) => r.data),
   create: (payload: CreateObservationPayload) => api.post<FieldObservation>('/observations', payload).then((r) => r.data),
   update: (id: string, payload: Record<string, unknown>) => api.patch<FieldObservation>(`/observations/${id}`, payload).then((r) => r.data),
   remove: (id: string) => api.delete<{ message: string }>(`/observations/${id}`).then((r) => r.data),
@@ -585,7 +589,7 @@ export const gisApi = {
   fullMap: (query: MapQuery = {}) => api.get<GisMapPayload>('/gis/map/full', { params: query as never }).then((r) => r.data),
   layers: () => api.get<GisLayerInfo>('/gis/layers').then((r) => r.data),
   nearby: (params: { latitude: number; longitude: number; radiusKm?: number; featureTypes?: string; limit?: number }) =>
-    api.get<NearbyResult[]>('/gis/nearby', { params }).then((r) => r.data),
+    api.get<NearbyResult>('/gis/nearby', { params }).then((r) => r.data),
   statistics: () => api.get<GisStatistics>('/gis/statistics').then((r) => r.data),
   recordPosition: (payload: { latitude: number; longitude: number; accuracyM?: number; elevationM?: number; source?: string; label?: string; capturedAt?: string; clientRef?: string; mocked?: boolean }) =>
     api.post<GisPosition>('/gis/positions', payload).then((r) => r.data),

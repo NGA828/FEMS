@@ -463,6 +463,27 @@ export interface Payment {
   verifiedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName'> | null;
 }
 
+export interface PaymentReceipt {
+  receiptNumber: string;
+  issuedAt: IsoDate;
+  issuedBy: string;
+  organisation: string;
+  payment: {
+    reference: string;
+    purpose: PaymentPurpose;
+    method: PaymentMethod;
+    amount: Numeric;
+    currency: string;
+    provider: string;
+    providerReference?: string | null;
+    isSandbox: boolean;
+    paidAt?: IsoDate | null;
+  };
+  payer?: { id?: Identifier; name?: string | null; email?: string | null; phone?: string | null } | null;
+  company?: { id?: Identifier; name?: string | null } | null;
+  permit?: { id?: Identifier; permitNumber?: string; status?: PermitStatus; feeAmount?: Numeric | null } | null;
+}
+
 export interface PaymentProviderInfo {
   provider: 'CAMPAY' | 'SIMULATOR' | string;
   sandbox: boolean;
@@ -732,8 +753,15 @@ export interface AiAlert {
   activity?: Pick<ExploitationActivity, 'id' | 'reference' | 'activityType' | 'status'> | null;
   inspection?: Pick<Inspection, 'id' | 'reference' | 'status'> | null;
   reviewedBy?: Pick<DirectoryUser, 'id' | 'firstName' | 'lastName' | 'email'> | null;
+  violation?: Pick<Violation, 'id' | 'reference' | 'status' | 'severity'> | null;
+  linkedViolation?: Pick<Violation, 'id' | 'reference' | 'status' | 'severity'> | null;
+  observation?: Pick<FieldObservation, 'id' | 'title' | 'category'> | null;
+  relatedAlerts?: { id: Identifier; reference: string; title: string; status: AlertStatus; riskLevel: RiskLevel }[];
   review?: { requiresHumanDecision: boolean; overdue: boolean; isClosed: boolean; detectorLabel: string; riskScore: number };
+  /** Actions this account may record, as decided by the API. */
   actions?: AlertAction[];
+  /** What the assistant and the detector are not allowed to do, in the API's own words. */
+  guardrails?: string[];
 }
 
 export interface AiAnalysis {
@@ -821,6 +849,7 @@ export interface AiConversation {
   id: Identifier;
   title: string;
   archivedAt?: IsoDate | null;
+  lastMessageAt?: IsoDate | null;
   createdAt: IsoDate;
   updatedAt?: IsoDate;
   messages?: AiMessage[];
@@ -828,12 +857,30 @@ export interface AiConversation {
 }
 
 export interface AssistantAnswer {
-  conversation: AiConversation;
-  message: AiMessage;
+  conversationId: Identifier;
+  question: string;
+  answer: string;
   provider: AiProvider;
   model?: string | null;
-  usedRulesFallback?: boolean;
-  notice?: string | null;
+  /** False when GEMINI_API_KEY is absent; the rule engine produced the answer. */
+  geminiConfigured: boolean;
+  providerError?: string | null;
+  intent?: string | null;
+  latencyMs: number;
+  tokensUsed?: number | null;
+  /** Exactly which records the API authorised for this question, and what it withheld. */
+  context?: {
+    scope: {
+      role: string[];
+      companyId?: Identifier | null;
+      forestId?: Identifier | null;
+      companyFilter?: Identifier | null;
+      permitId?: Identifier | null;
+      dataScope: string;
+    };
+    sections: { key: string; label: string; records: number }[];
+    withheld?: { section: string; label: string; reason: string }[];
+  };
 }
 
 // --------------------------------------------------------------------- reports
@@ -944,6 +991,14 @@ export interface AppNotification {
   expiresAt?: IsoDate | null;
 }
 
+export interface NotificationPreference {
+  type: NotificationType;
+  inAppEnabled: boolean;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  isDefault?: boolean;
+}
+
 // ------------------------------------------------------------------------- GIS
 
 export type GisFeatureType =
@@ -1009,9 +1064,23 @@ export interface GisPosition {
   mocked?: boolean;
 }
 
-export interface NearbyResult {
-  feature: GisFeature;
+export interface NearbyEntry {
+  id: Identifier;
+  featureType: GisFeatureType;
+  entityId: Identifier;
+  label: string;
+  latitude: number;
+  longitude: number;
   distanceKm: number;
+  recordedAt?: IsoDate | null;
+  forestId?: Identifier | null;
+  zoneId?: Identifier | null;
+}
+
+export interface NearbyResult {
+  origin: { latitude: number; longitude: number };
+  radiusKm: number;
+  results: NearbyEntry[];
 }
 
 // ----------------------------------------------------------------------- audit
@@ -1047,12 +1116,11 @@ export interface ActivityStatistics {
   total: number;
   plannedVolumeM3: number;
   harvestedVolumeM3: number;
-  utilisationRate?: number;
-  byStatus?: { status: ActivityStatus; count: number }[];
-  byType?: { type: ActivityType; count: number }[];
-  monthly?: { month: string; volumeM3: number; activities: number }[];
-  topCompanies?: { companyId: Identifier; companyName: string; volumeM3: number }[];
-  byForest?: { forestId: Identifier; forestName: string; volumeM3: number }[];
+  harvestedTrees: number;
+  byStatus: { status: ActivityStatus; count: number }[];
+  byType: { activityType: ActivityType; count: number; harvestedVolumeM3: number }[];
+  byCompany: { companyId: Identifier; companyName: string; harvestedVolumeM3: number }[];
+  monthly: { month: string; volumeM3: number; activities: number }[];
 }
 
 export interface InspectionStatistics {
@@ -1105,18 +1173,42 @@ export interface AlertStatistics {
 export interface PaymentStatistics {
   total: number;
   totalAmount: number;
-  successfulAmount?: number;
-  outstandingAmount?: number;
-  byStatus: { status: PaymentStatus; count: number }[];
-  byPurpose: { purpose: PaymentPurpose; count: number; amount?: number }[];
-  monthly?: { month: string; amount: number; count: number }[];
+  lastPaymentAt: IsoDate | null;
+  byStatus: { status: PaymentStatus; count: number; amount: number }[];
+  byPurpose: { purpose: PaymentPurpose; count: number; amount: number }[];
+  monthly: { month: string; collected: number; count: number }[];
 }
 
 export interface ReportStatistics {
   total: number;
-  byType: { type: ReportType; count: number }[];
+  totalSizeBytes: number;
+  lastGeneratedAt: IsoDate | null;
+  byType: { type: ReportType; label: string; generated: number; description?: string }[];
+  byFormat: { format: ReportFormat; count: number }[];
   byStatus: { status: ReportStatus; count: number }[];
-  recent?: Report[];
+}
+
+export interface ObservationStatistics {
+  total: number;
+  byCategory: { category: ObservationCategory; count: number }[];
+  bySeverity: { severity: ViolationSeverity; count: number }[];
+  monthly: { month: string; count: number }[];
+}
+
+export interface UserStatistics {
+  total: number;
+  byStatus: { active: number; pendingVerification: number; suspended: number };
+  byRole: { role: string; label: string; count: number }[];
+  withCompany: number;
+  environment: string;
+}
+
+export interface CompanyStatistics {
+  total: number;
+  byStatus: { status: CompanyStatus; count: number }[];
+  byType: { type: CompanyType; count: number }[];
+  byRegion: { region: string; count: number }[];
+  companiesWithViolations: { id: Identifier; name: string; violations: number }[];
 }
 
 export interface HealthStatus {

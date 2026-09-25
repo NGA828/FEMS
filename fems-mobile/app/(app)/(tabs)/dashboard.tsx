@@ -263,10 +263,14 @@ export default function DashboardScreen() {
             {mayReadExploitation && activityStats.data ? (
               <StatTile
                 label={context.isCompanyAccount ? 'My harvested volume' : 'Harvested volume'}
-                value={formatVolume(activityStats.data.harvestedVolumeM3 ?? 0, language)}
-                hint={`${activityStats.data.total} activities · utilisation ${
-                  activityStats.data.utilisationRate !== undefined ? `${Math.round((activityStats.data.utilisationRate ?? 0) * 100)}%` : '—'
-                }`}
+                value={formatVolume(activityStats.data.harvestedVolumeM3, language)}
+                hint={
+                  activityStats.data.plannedVolumeM3 > 0
+                    ? `${activityStats.data.total} activities · ${Math.round(
+                        (activityStats.data.harvestedVolumeM3 / activityStats.data.plannedVolumeM3) * 100,
+                      )}% of the declared plan`
+                    : `${activityStats.data.total} activities recorded`
+                }
                 icon="cube-outline"
                 tone="accent"
                 onPress={() => router.push('/activity')}
