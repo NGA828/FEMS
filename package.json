@@ -1,0 +1,21 @@
+{
+  "name": "fems",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Forest Exploitation Management System — React Native + NestJS + Prisma + MySQL platform for managing, monitoring, regulating and analysing forest exploitation activities in Cameroon.",
+  "scripts": {
+    "setup": "npm --prefix fems-backend install && npm --prefix fems-backend run prisma:generate && npm --prefix fems-mobile install",
+    "db:up": "docker compose up -d mysql",
+    "db:down": "docker compose down",
+    "backend:dev": "npm --prefix fems-backend run start:dev",
+    "backend:build": "npm --prefix fems-backend run build",
+    "backend:test": "npm --prefix fems-backend test",
+    "backend:test:e2e": "npm --prefix fems-backend run test:e2e",
+    "db:migrate": "npm --prefix fems-backend run db:migrate",
+    "db:seed": "npm --prefix fems-backend run db:seed",
+    "db:reset": "npm --prefix fems-backend run db:reset",
+    "mobile:start": "npm --prefix fems-mobile run start",
+    "mobile:web": "npm --prefix fems-mobile run web",
+    "mobile:typecheck": "npm --prefix fems-mobile run typecheck"
+  }
+}

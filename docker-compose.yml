@@ -1,0 +1,33 @@
+# FEMS — local development database
+#
+#   docker compose up -d          # start MySQL 8.4 matching production
+#   docker compose logs -f mysql  # follow logs
+#   docker compose down -v        # destroy data
+#
+# The API reads DATABASE_URL from fems-backend/.env (see .env.example).
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: fems-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_ROOT_PASSWORD: fems_root_dev
+      MYSQL_DATABASE: fems
+      MYSQL_USER: fems
+      MYSQL_PASSWORD: fems
+    ports:
+      - "3306:3306"
+    volumes:
+      - fems-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ufems", "-pfems"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  fems-mysql-data:

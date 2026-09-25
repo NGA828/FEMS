@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "FEMS",
+    "slug": "fems-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "fems",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B241C"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "cm.gov.minfof.fems",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FEMS records the GPS position of field activities, inspections and observations you capture so they can be verified against the permit area.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "FEMS records the GPS position of field activities, inspections and observations you capture so they can be verified against the permit area.",
+        "NSCameraUsageDescription": "FEMS uses the camera to attach photographic evidence to inspections, observations and violations.",
+        "NSPhotoLibraryUsageDescription": "FEMS attaches photographs from your library as evidence to inspections, observations and violations."
+      }
+    },
+    "android": {
+      "package": "cm.gov.minfof.fems",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "INTERNET"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0B241C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FEMS records the GPS position of the field data you capture."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FEMS attaches photographs from your library as evidence.",
+          "cameraPermission": "FEMS uses the camera to attach photographic evidence."
+        }
+      ]
+    ],
+    "extra": {
+      "revenueCurrency": "XAF"
+    }
+  }
+}
