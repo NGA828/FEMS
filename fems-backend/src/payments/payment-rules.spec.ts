@@ -49,6 +49,11 @@ describe('payment-rules', () => {
       expect(checkPayableAmount(-5, 300_000).code).toBe('PAYMENT_AMOUNT_INVALID');
       expect(checkPayableAmount(Number.NaN, 300_000).code).toBe('PAYMENT_AMOUNT_INVALID');
     });
+
+    it('rejects a non-finite outstanding balance', () => {
+      expect(checkPayableAmount(50, Number.NaN).code).toBe('OUTSTANDING_BALANCE_INVALID');
+      expect(checkPayableAmount(50, Number.POSITIVE_INFINITY).code).toBe('OUTSTANDING_BALANCE_INVALID');
+    });
   });
 
   describe('provider answers', () => {
@@ -67,10 +72,18 @@ describe('payment-rules', () => {
     it('never moves a settled or refunded payment backwards', () => {
       expect(nextStatusForProviderOutcome(PaymentStatus.SUCCESSFUL, { status: 'PENDING' })).toBe(PaymentStatus.SUCCESSFUL);
       expect(nextStatusForProviderOutcome(PaymentStatus.REFUNDED, { status: 'FAILED' })).toBe(PaymentStatus.REFUNDED);
+      expect(nextStatusForProviderOutcome(PaymentStatus.FAILED, { status: 'SUCCESSFUL' })).toBe(PaymentStatus.FAILED);
+      expect(nextStatusForProviderOutcome(PaymentStatus.CANCELLED, { status: 'PROCESSING' })).toBe(PaymentStatus.CANCELLED);
+    });
+
+    it('does not move a payment backward from processing', () => {
+      expect(nextStatusForProviderOutcome(PaymentStatus.PROCESSING, { status: 'PENDING' })).toBe(PaymentStatus.PROCESSING);
+      expect(nextStatusForProviderOutcome(PaymentStatus.PENDING, { status: 'PROCESSING' })).toBe(PaymentStatus.PROCESSING);
     });
 
     it('keeps an unknown provider answer at PROCESSING', () => {
       expect(nextStatusForProviderOutcome(PaymentStatus.PENDING, { status: 'PROCESSING' })).toBe(PaymentStatus.PROCESSING);
+      expect(nextStatusForProviderOutcome(PaymentStatus.PROCESSING, { status: 'UNKNOWN' as never })).toBe(PaymentStatus.PROCESSING);
     });
 
     it('maps a failed provider answer to FAILED', () => {
