@@ -6,6 +6,7 @@
  * place and stay in sync with the NestJS controllers.
  */
 import { api } from './client-instance';
+import { apiConfig } from './config';
 import type { Paginated } from './client';
 import type {
   AiAlert,
@@ -29,6 +30,9 @@ import type {
   FieldObservation,
   Forest,
   ForestZone,
+  MediaDescriptor,
+  MediaOwnerType,
+  MediaRole,
   GisFeature,
   GisLayerInfo,
   GisMapPayload,
@@ -250,6 +254,25 @@ export const forestsApi = {
   inventory: (query: PageQuery & { forestId?: string; zoneId?: string; speciesId?: string } = {}) =>
     api.list<Record<string, unknown>>('/inventory', { params: query as never }),
 };
+
+// ---------------------------------------------------------------------- media
+
+export const mediaApi = {
+  heroes: () => api.get<MediaDescriptor[]>('/media', { params: { role: 'HERO', limit: 12 } as never }).then((r) => r.data),
+  list: (query: { ownerType?: MediaOwnerType; ownerId?: string; role?: MediaRole; limit?: number } = {}) =>
+    api.get<MediaDescriptor[]>('/media', { params: query as never }).then((r) => r.data),
+  covers: (ownerType: MediaOwnerType, ownerIds: string[]) =>
+    api
+      .get<Record<string, MediaDescriptor>>('/media/covers', { params: { ownerType, ownerIds: ownerIds.join(',') } as never })
+      .then((r) => r.data),
+};
+
+/** Absolute URL an <Image> can load for a media descriptor (public endpoint). */
+export function mediaImageUrl(descriptor: MediaDescriptor | null | undefined): string | null {
+  if (!descriptor) return null;
+  const base = apiConfig.baseUrl.replace(/\/+$/, '');
+  return `${base}${descriptor.url.startsWith('/') ? descriptor.url : `/${descriptor.url}`}`;
+}
 
 // --------------------------------------------------------------------- permits
 

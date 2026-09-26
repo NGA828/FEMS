@@ -1869,3 +1869,42 @@ model AIMessage {
   @@index([conversationId, createdAt])
   @@map("ai_messages")
 }
+
+enum MediaOwnerType {
+  FOREST
+  PROTECTED_AREA
+  TREE_SPECIES
+  HERO
+  BRAND
+}
+
+enum MediaRole {
+  COVER
+  GALLERY
+  HERO
+  LOGO
+}
+
+model MediaAsset {
+  id        String         @id @default(uuid()) @db.VarChar(36)
+  ownerType MediaOwnerType
+  ownerId   String?        @db.VarChar(36)
+  role      MediaRole      @default(COVER)
+  title     String?        @db.VarChar(191)
+  altText   String?        @db.VarChar(300)
+  credit    String?        @db.VarChar(191)
+  mimeType  String         @db.VarChar(64)
+  width     Int
+  height    Int
+  sizeBytes Int
+  data      Bytes          @db.LongBlob
+  isDemo    Boolean        @default(true)
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([role])
+  @@index([ownerType, role, sortOrder])
+  @@map("media_assets")
+}

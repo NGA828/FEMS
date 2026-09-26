@@ -18,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '../theme/tokens';
 import { useTone } from './context';
@@ -44,7 +45,10 @@ export function Screen({
 }: ScreenProps) {
   const theme = useTone();
   const insets = useSafeAreaInsets();
-  const bottomPadding = (tabBar ? theme.tabBarHeight : 0) + insets.bottom + spacing.lg;
+  // The tab navigator already insets tab screens above the bar, so we only add a
+  // consistent breathing gap + the safe-area inset. Adding the full bar height
+  // here used to leave a large unexplained blank band at the bottom of screens.
+  const bottomPadding = insets.bottom + spacing.xl;
 
   const body = scroll ? (
     <ScrollView
@@ -196,7 +200,9 @@ export function Definition({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[{ marginBottom: spacing.md, minWidth: 120, flexGrow: 1, flexBasis: 140 }, style]}>
+    // Stable two-up grid: each cell takes ~half the row so label/value pairs align
+    // in tidy columns instead of ragged widths.
+    <View style={[{ marginBottom: spacing.md, flexGrow: 1, flexBasis: '46%' }, style]}>
       <Caption tone="muted" style={{ marginBottom: 2 }}>
         {label}
       </Caption>
@@ -283,10 +289,11 @@ export function PageHeader({
             onPress={onBack}
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            hitSlop={8}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.xs, alignSelf: 'flex-start' }}
+            hitSlop={10}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs, alignSelf: 'flex-start', marginTop: -2 }}
           >
-            <Caption style={{ color: theme.colors.primary, fontWeight: '700' }}>‹ Back</Caption>
+            <Ionicons name="arrow-back" size={15} color={theme.colors.primary} />
+            <Caption style={{ color: theme.colors.primary, fontWeight: '700' }}>Back</Caption>
           </Pressable>
         ) : null}
         <Heading>{title}</Heading>
