@@ -18,6 +18,7 @@ import {
   gisApi,
   healthApi,
   inspectionsApi,
+  mediaApi,
   notificationsApi,
   observationsApi,
   paymentsApi,
@@ -40,7 +41,7 @@ import {
   type ReportQuery,
   type ViolationQuery,
 } from './endpoints';
-import type { CompanyStatus, NotificationPreference } from './types';
+import type { CompanyStatus, MediaOwnerType, NotificationPreference } from './types';
 
 // ------------------------------------------------------------------ key space
 
@@ -50,6 +51,8 @@ export const queryKeys = {
   forest: (id: string) => ['forest', id] as const,
   forestZones: (id: string) => ['forest', id, 'zones'] as const,
   forestStatistics: ['forests', 'statistics'] as const,
+  mediaHeroes: ['media', 'heroes'] as const,
+  mediaCovers: (ownerType: string, ids: string[]) => ['media', 'covers', ownerType, ids] as const,
   protectedAreas: (query?: unknown) => ['protected-areas', query] as const,
   permits: (query?: unknown) => ['permits', query] as const,
   permit: (id: string) => ['permit', id] as const,
@@ -148,6 +151,22 @@ export function useForestZones(forestId: string | null) {
 
 export function useForestStatistics() {
   return useQuery({ queryKey: queryKeys.forestStatistics, queryFn: forestsApi.statistics, staleTime: 60_000 });
+}
+
+/** Landing-page hero frames (public, database-resident media). */
+export function useHeroMedia() {
+  return useQuery({ queryKey: queryKeys.mediaHeroes, queryFn: mediaApi.heroes, staleTime: 300_000 });
+}
+
+/** One cover descriptor per record id, for catalogue cards. */
+export function useMediaCovers(ownerType: MediaOwnerType, ids: string[]) {
+  const key = ids.slice().sort().join(',');
+  return useQuery({
+    queryKey: queryKeys.mediaCovers(ownerType, key ? key.split(',') : []),
+    queryFn: () => mediaApi.covers(ownerType, key ? key.split(',') : []),
+    enabled: ids.length > 0,
+    staleTime: 300_000,
+  });
 }
 
 export function useProtectedAreas(query: PageQuery & { region?: string; type?: string } = {}) {

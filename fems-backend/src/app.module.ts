@@ -22,6 +22,7 @@ import { ExploitationModule } from './exploitation/exploitation.module';
 import { GisModule } from './gis/gis.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { StorageModule } from './storage/storage.module';
+import { MediaModule } from './media/media.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard, RolesGuard } from './common/guards/roles-permissions.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -52,6 +53,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     RbacModule,
     NotificationsModule,
     StorageModule,
+    MediaModule,
     GisModule,
     AuditModule,
     UsersModule,

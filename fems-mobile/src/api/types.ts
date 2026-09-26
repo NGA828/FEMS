@@ -1341,3 +1341,24 @@ export interface HealthStatus {
 }
 
 export type DashboardStatistics = Record<string, never>;
+
+export type MediaOwnerType = 'FOREST' | 'PROTECTED_AREA' | 'TREE_SPECIES' | 'HERO' | 'BRAND';
+export type MediaRole = 'COVER' | 'GALLERY' | 'HERO' | 'LOGO';
+
+/** Descriptor for a database-resident media asset (binary served separately). */
+export interface MediaDescriptor {
+  id: Identifier;
+  ownerType: MediaOwnerType;
+  ownerId: Identifier | null;
+  role: MediaRole;
+  title: string | null;
+  altText: string | null;
+  credit: string | null;
+  mimeType: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+  isDemo: boolean;
+  sortOrder: number;
+  url: string;
+}

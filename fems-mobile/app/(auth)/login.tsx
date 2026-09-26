@@ -16,8 +16,9 @@ import { ApiError, fieldErrors } from '../../src/api/client';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { apiConfig } from '../../src/api/config';
 import { useTheme } from '../../src/theme/theme';
-import { Button, Caption, Notice, Overline, Row, TextField, Title, Body, Divider } from '../../src/ui';
+import { Button, Caption, Notice, Overline, Row, TextField, Body, Divider } from '../../src/ui';
 import { useToast } from '../../src/ui';
+import { LogoLockup } from '../../src/components/brand/Logo';
 
 /** Seeded accounts, one per role — printed with the password used by the seed. */
 const DEMO_ACCOUNTS: { email: string; role: string; label: string }[] = [
@@ -86,23 +87,8 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        <View style={{ alignItems: 'center', marginBottom: 28, gap: 10 }}>
-          <View
-            style={{
-              width: 68,
-              height: 68,
-              borderRadius: 20,
-              backgroundColor: theme.colors.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="leaf" size={34} color={theme.colors.onPrimary} />
-          </View>
-          <Title>Forest Exploitation Management System</Title>
-          <Caption tone="muted" style={{ textAlign: 'center', maxWidth: 320 }}>
-            Monitoring, regulating and analysing forest exploitation across Cameroon.
-          </Caption>
+        <View style={{ alignItems: 'center', marginBottom: 28 }}>
+          <LogoLockup markSize={76} subtitle="Monitoring, regulating and analysing forest exploitation across Cameroon." />
         </View>
 
         <View

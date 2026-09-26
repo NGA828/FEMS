@@ -50,6 +50,7 @@ import {
   InspectionOutcome,
   InspectionStatus,
   InspectionType,
+  MediaOwnerType,
   ObservationCategory,
   PaymentMethod,
   PaymentProvider,
@@ -74,6 +75,7 @@ import {
 } from '@prisma/client';
 
 import { buildIntelligenceDataset } from '../src/ai/ai-dataset';
+import { seedMedia } from './seed-media';
 import { DETECTOR_VERSION, runRules } from '../src/ai/anomaly-analyzer';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { defaultChecklist } from '../src/inspections/inspection-state';
@@ -4479,6 +4481,27 @@ async function seedIntelligence(userIds: Map<string, string>): Promise<void> {
   });
 }
 
+/**
+ * Seed the binary media library (landing hero frames, forest / protected-area /
+ * species covers and the brand mark) from `prisma/seed-assets/media/`. Files that
+ * are not yet present are skipped, so the seed never fails while the imagery
+ * library grows.
+ */
+async function seedMediaLibrary(): Promise<void> {
+  const forestKeys = new Set(FORESTS.map((forest) => forest.key));
+  const areaKeys = new Set(PROTECTED_AREAS.map((area) => area.key));
+  const speciesKeys = new Set(SPECIES.map((species) => species.key));
+
+  const count = await seedMedia(prisma as unknown as PrismaService, (ownerType, key) => {
+    if (ownerType === MediaOwnerType.FOREST && forestKeys.has(key)) return demoId('forest', key);
+    if (ownerType === MediaOwnerType.PROTECTED_AREA && areaKeys.has(key)) return demoId('pa', key);
+    if (ownerType === MediaOwnerType.TREE_SPECIES && speciesKeys.has(key)) return demoId('species', key);
+    return null;
+  });
+
+  counts.set('media asset', count);
+}
+
 // ---------------------------------------------------------------------------
 // entry point
 // ---------------------------------------------------------------------------
@@ -4524,6 +4547,7 @@ async function main(): Promise<void> {
   await seedEvidence(userIds);
   await seedReports(userIds);
   await seedIntelligence(userIds);
+  await seedMediaLibrary();
 
   console.log('');
   for (const [kind, amount] of [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {

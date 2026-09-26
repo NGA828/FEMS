@@ -8,9 +8,9 @@
 import React from 'react';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/auth/AuthProvider';
 import { useTheme } from '../src/theme/theme';
+import { LogoMark } from '../src/components/brand/Logo';
 import { Caption } from '../src/ui';
 
 export default function EntryGate() {
@@ -20,11 +20,13 @@ export default function EntryGate() {
   if (status === 'loading') {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background, gap: 12 }}>
-        <Ionicons name="leaf" size={40} color={theme.colors.primary} />
+        <LogoMark size={64} />
         <Caption tone="muted">Restoring your session…</Caption>
       </View>
     );
   }
 
-  return <Redirect href={status === 'authenticated' ? '/dashboard' : '/login'} />;
+  // Signed-out users are viewers first: they land on the public, image-led
+  // landing page rather than being thrown at a sign-in form.
+  return <Redirect href={status === 'authenticated' ? '/dashboard' : '/welcome'} />;
 }
