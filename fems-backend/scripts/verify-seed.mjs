@@ -77,7 +77,7 @@ try {
   for (const [label, count] of Object.entries(volume)) {
     check(`demo ${label} present`, count > 0, `${count} record(s)`);
   }
-  check('the eight roles have a demonstration account', users >= 8, `${users} accounts`);
+  check('the seeded roles have demonstration accounts', users >= 7, `${users} accounts`);
 
   // --- labels ------------------------------------------------------------
   // Ids are UUIDs (the API validates references with `@IsUUID()`), so "is this

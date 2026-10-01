@@ -78,7 +78,6 @@ const EXPECTED = {
   'demo.bsc@fems.cm': { permits: 200, inspections: 200, payments: 200, violations: 200, alerts: 403, reports: 200, activities: 200 },
   'demo.cwpi@fems.cm': { permits: 200, inspections: 200, payments: 200, violations: 200, alerts: 403, reports: 200, activities: 200 },
   'demo.explorer@fems.cm': { permits: 403, inspections: 403, payments: 403, violations: 403, alerts: 403, reports: 200, activities: 403 },
-  'demo.visitor@fems.cm': { permits: 403, inspections: 403, payments: 403, violations: 403, alerts: 403, reports: 403, activities: 403 },
 };
 
 const MODULES = [

@@ -4,7 +4,7 @@
  * The emblem — a tree rising from concentric growth rings inside a seal, crossed
  * by a topographic contour line — stands for what the system does: it keeps the
  * *record* (growth rings) of the *forest* (canopy) on the *map* (contour). It is
- * used consistently on the splash, the auth screens, the visitor landing page and
+ * used consistently on the splash, the auth screens, the public landing page and
  * the dashboards, replacing the generic leaf glyph.
  */
 import React from 'react';

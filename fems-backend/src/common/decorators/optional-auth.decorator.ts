@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from './index';
 /**
  * Public endpoints can still personalise the answer when the caller happens to
  * be signed in (a government officer sees non-public forests in the same
- * endpoint a visitor uses to browse public ones).
+ * endpoint a signed-out viewer uses to browse public ones).
  *
  * The global JwtAuthGuard still runs for `@Public()` routes only when a token
  * is present — see JwtAuthGuard.optionalAuth handling below.

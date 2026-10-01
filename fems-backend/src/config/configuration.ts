@@ -92,9 +92,9 @@ export interface AppConfig {
     };
   };
   ai: {
-    geminiApiKey: string;
-    geminiModel: string;
-    geminiBaseUrl: string;
+    openRouterApiKey: string;
+    openRouterModel: string;
+    openRouterBaseUrl: string;
     requestTimeoutMs: number;
     maxOutputTokens: number;
     reviewSlaHours: number;
@@ -172,9 +172,9 @@ export function appConfig(): AppConfig {
       },
     },
     ai: {
-      geminiApiKey: process.env.GEMINI_API_KEY ?? '',
-      geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
-      geminiBaseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
+      openRouterApiKey: process.env.OPENROUTER_API_KEY ?? '',
+      openRouterModel: process.env.OPENROUTER_MODEL ?? 'openrouter/auto',
+      openRouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
       requestTimeoutMs: num(process.env.AI_REQUEST_TIMEOUT_MS, 30_000),
       maxOutputTokens: num(process.env.AI_MAX_OUTPUT_TOKENS, 2048),
       reviewSlaHours: num(process.env.AI_ALERT_REVIEW_SLA_HOURS, 72),
@@ -215,9 +215,9 @@ export function integrationStatus() {
       ),
     },
     ai: {
-      provider: config.ai.geminiApiKey ? 'GEMINI' : 'LOCAL_RULE_ENGINE',
-      geminiConfigured: Boolean(config.ai.geminiApiKey),
-      model: config.ai.geminiApiKey ? config.ai.geminiModel : 'deterministic-rule-engine',
+      provider: config.ai.openRouterApiKey ? 'OPENROUTER' : 'LOCAL_RULE_ENGINE',
+      providerConfigured: Boolean(config.ai.openRouterApiKey),
+      model: config.ai.openRouterApiKey ? config.ai.openRouterModel : 'deterministic-rule-engine',
     },
     notifications: {
       pushProvider: config.notifications.pushProvider,

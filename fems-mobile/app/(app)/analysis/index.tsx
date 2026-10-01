@@ -116,10 +116,10 @@ export default function AnalysisScreen() {
 
       {status.data ? (
         <Notice
-          tone={status.data.geminiConfigured ? 'info' : 'neutral'}
-          title={status.data.geminiConfigured ? `Provider: ${status.data.provider}` : 'Deterministic rule engine only'}
+          tone={status.data.providerConfigured ? 'info' : 'neutral'}
+          title={status.data.providerConfigured ? `Provider: ${status.data.provider}` : 'Deterministic rule engine only'}
         >
-          {status.data.geminiConfigured
+          {status.data.providerConfigured
             ? `${status.data.message} Model: ${status.data.model}. Findings are still reviewed by a human before any regulatory step.`
             : status.data.message}
         </Notice>

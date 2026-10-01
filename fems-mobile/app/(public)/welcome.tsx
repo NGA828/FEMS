@@ -1,9 +1,9 @@
 /**
- * Visitor landing page — a public, image-first introduction to the national
+ * Public landing page — a public, image-first introduction to the national
  * forest estate.
  *
  * Everything here is served by public API endpoints and rendered from
- * database-resident media (`media_assets`), so a signed-out visitor gets a rich,
+ * database-resident media (`media_assets`), so a signed-out viewer gets a rich,
  * photography-led view of forests, protected areas and the platform's purpose —
  * with a clear path to sign in or register when they need to *act* rather than
  * *view*.
@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
               Explore classified forests, protected areas and the timber species of Cameroon — and, when you are ready to
               work with them, sign in to request permits, report from the field and monitor compliance.
             </Caption>
-            <Row gap={10} style={{ marginTop: 4 }}>
+            <Row gap={10} wrap style={{ marginTop: 4 }}>
               <Button label="Explore forests" icon="leaf-outline" onPress={() => router.push('/explore')} />
               <Button label="Create account" variant="secondary" onPress={() => router.push('/register')} />
             </Row>

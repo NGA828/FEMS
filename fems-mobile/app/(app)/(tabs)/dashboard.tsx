@@ -176,32 +176,18 @@ export default function DashboardScreen() {
       </Row>
 
       {/* --------------------------------------------------------- quick actions */}
-      <Section title="Quick actions">
-        <Row gap={10} wrap>
-          {context.canApplyForPermit ? (
-            <Button label="New permit" icon="add-circle-outline" size="sm" onPress={() => router.push('/permit/new')} />
-          ) : null}
-          {context.canCaptureField ? (
-            <Button label="Capture activity" icon="walk-outline" size="sm" variant="secondary" onPress={() => router.push('/activity/capture')} />
-          ) : null}
-          {mayReadInspections ? (
-            <Button label="Inspections" icon="clipboard-outline" size="sm" variant="secondary" onPress={() => router.push('/inspection')} />
-          ) : null}
-          {context.canReviewAlerts ? (
-            <Button label="Alert console" icon="warning-outline" size="sm" variant="secondary" onPress={() => router.push('/alerts')} />
-          ) : null}
-          {context.canVerifyPayments ? (
-            <Button label="Verify payments" icon="card-outline" size="sm" variant="secondary" onPress={() => router.push('/payments')} />
-          ) : null}
-          {context.canGenerateReports ? (
-            <Button label="Reports" icon="bar-chart-outline" size="sm" variant="secondary" onPress={() => router.push('/report')} />
-          ) : null}
-          {mayReadGis ? <Button label="Map" icon="map-outline" size="sm" variant="secondary" onPress={() => router.push('/map')} /> : null}
-          {context.canCaptureField ? (
-            <Button label="Sync queue" icon="cloud-upload-outline" size="sm" variant="ghost" onPress={() => router.push('/sync')} />
-          ) : null}
-        </Row>
-      </Section>
+      {context.canApplyForPermit || context.canCaptureField ? (
+        <Section title="Quick actions">
+          <Row gap={10} wrap>
+            {context.canApplyForPermit ? (
+              <Button label="New permit" icon="add-circle-outline" size="sm" onPress={() => router.push('/permit/new')} />
+            ) : null}
+            {context.canCaptureField ? (
+              <Button label="Capture activity" icon="walk-outline" size="sm" variant="secondary" onPress={() => router.push('/activity/capture')} />
+            ) : null}
+          </Row>
+        </Section>
+      ) : null}
 
       {/* --------------------------------------------------------------- tiles */}
       <Section title={context.isPublicAccount ? 'Forest resources' : 'Operational picture'}>

@@ -1,7 +1,7 @@
 /**
  * Role-aware navigation.
  *
- * Each of the eight roles gets a distinct working set of tabs — a field operator
+ * Each role gets a distinct working set of tabs — a field operator
  * does not need a permit register, and an explorer has no business with the
  * compliance console. Hiding a tab is a usability decision only: every screen
  * behind it calls an endpoint whose guards run on the server, so a hand-typed
@@ -51,12 +51,11 @@ const ROLE_TABS: Record<RoleName, TabName[]> = {
   FIELD_OPERATOR: ['dashboard', 'field', 'map', 'sync', 'profile'],
   COMPANY_REPRESENTATIVE: ['dashboard', 'permits', 'field', 'payments', 'profile'],
   FOREST_EXPLORER: ['dashboard', 'forests', 'assistant', 'map', 'profile'],
-  VISITOR: ['dashboard', 'forests', 'assistant', 'profile'],
 };
 
 export function tabsFor(user: AuthUser | null): TabDefinition[] {
-  const role = (user?.roles?.[0]?.name ?? 'VISITOR') as RoleName;
-  const tabs = ROLE_TABS[role] ?? ROLE_TABS.VISITOR;
+  const role = (user?.roles?.[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
+  const tabs = ROLE_TABS[role] ?? ROLE_TABS.FOREST_EXPLORER;
   return tabs.map((name) => TAB_DEFINITIONS[name]);
 }
 
@@ -91,7 +90,7 @@ export interface RoleContext {
 }
 
 export function roleContext(user: AuthUser | null, hasPermission: (permission: string) => boolean): RoleContext {
-  const role = (user?.roles?.[0]?.name ?? 'VISITOR') as RoleName;
+  const role = (user?.roles?.[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
   const isAdministrator = role === 'ADMIN' || role === 'SUPER_ADMIN';
   const isCompanyAccount = Boolean(user?.company?.id) && !isAdministrator;
 
@@ -101,7 +100,7 @@ export function roleContext(user: AuthUser | null, hasPermission: (permission: s
     isRegulator: isAdministrator || role === 'GOVERNMENT_FOREST_OFFICER' || role === 'ENVIRONMENTAL_OFFICER',
     isFieldWorker: role === 'FOREST_INSPECTOR' || role === 'FIELD_OPERATOR' || role === 'ENVIRONMENTAL_OFFICER',
     isCompanyAccount,
-    isPublicAccount: role === 'VISITOR' || role === 'FOREST_EXPLORER',
+    isPublicAccount: role === 'FOREST_EXPLORER',
     canApplyForPermit: hasPermission('permits:create') || hasPermission('permits:manage_own'),
     canDecidePermit: hasPermission('permits:approve') || hasPermission('permits:reject') || isAdministrator,
     canHandleViolations: hasPermission('environmental:update') || hasPermission('environmental:confirm'),

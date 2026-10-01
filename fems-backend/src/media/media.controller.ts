@@ -7,11 +7,11 @@ import { MediaService } from './media.service';
 import { MediaQueryDto } from './dto/media.dto';
 
 /**
- * Public imagery for the visitor landing page and record cards.
+ * Public imagery for the signed-out landing page and record cards.
  *
  * Media lives in the database (`media_assets`) and is seeded from the
  * repository's seed assets, so the catalogue is genuinely data-driven. Reads are
- * public because the imagery is exactly what a signed-out visitor is allowed to
+ * public because the imagery is exactly what a signed-out viewer is allowed to
  * browse; writes (uploads) are not exposed here — evidence and documents use the
  * permissioned `/files` endpoints instead.
  */

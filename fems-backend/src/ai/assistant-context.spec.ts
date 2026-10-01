@@ -1,10 +1,13 @@
 import {
   ASSISTANT_DISCLAIMER,
   ASSISTANT_MAX_CONTEXT_CHARS,
+  ASSISTANT_MAX_HISTORY_MESSAGE_CHARS,
+  ASSISTANT_MAX_HISTORY_MESSAGES,
   ASSISTANT_MAX_RECORDS_PER_SECTION,
   ASSISTANT_SECTIONS,
   ASSISTANT_SYSTEM_INSTRUCTION,
   answerFromContext,
+  buildAssistantHistory,
   buildAssistantContext,
   detectIntent,
   renderContextForProvider,
@@ -33,6 +36,45 @@ function snapshot(overrides: Partial<AssistantSnapshot['sections']> = {}, compan
 const ALL_PERMISSIONS = ['*'];
 
 describe('assistant-context', () => {
+  describe('buildAssistantHistory', () => {
+    it('preserves chronological turns and maps assistant messages to model turns', () => {
+      expect(
+        buildAssistantHistory([
+          { role: 'USER', content: 'Which permits are active?' },
+          { role: 'ASSISTANT', content: 'There are three active permits.' },
+        ]),
+      ).toEqual([
+        { role: 'user', text: 'Which permits are active?' },
+        { role: 'model', text: 'There are three active permits.' },
+      ]);
+    });
+
+    it('keeps only the latest bounded turns and truncates oversized messages', () => {
+      const turns = Array.from({ length: ASSISTANT_MAX_HISTORY_MESSAGES + 2 }, (_, index) => ({
+        role: index % 2 === 0 ? ('USER' as const) : ('ASSISTANT' as const),
+        content: `${index}`.padEnd(ASSISTANT_MAX_HISTORY_MESSAGE_CHARS + 1, 'x'),
+      }));
+      const history = buildAssistantHistory(turns);
+      expect(history).toHaveLength(ASSISTANT_MAX_HISTORY_MESSAGES);
+      expect(history[0].text.startsWith('2')).toBe(true);
+      expect(history.every((turn) => turn.text.length === ASSISTANT_MAX_HISTORY_MESSAGE_CHARS)).toBe(true);
+    });
+
+    it('does not send an unanswered question or an assistant message without its question', () => {
+      expect(
+        buildAssistantHistory([
+          { role: 'USER', content: 'An unanswered question' },
+          { role: 'USER', content: 'A completed question' },
+          { role: 'ASSISTANT', content: 'A completed answer' },
+          { role: 'ASSISTANT', content: 'An orphaned answer' },
+        ]),
+      ).toEqual([
+        { role: 'user', text: 'A completed question' },
+        { role: 'model', text: 'A completed answer' },
+      ]);
+    });
+  });
+
   describe('selectSections', () => {
     it('opens every section for an administrator', () => {
       const { allowed } = selectSections(ALL_PERMISSIONS);

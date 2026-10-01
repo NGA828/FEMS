@@ -126,7 +126,6 @@ export const WILDCARD_PERMISSION: PermissionDefinition = {
 export const PERMISSION_CATALOGUE: PermissionDefinition[] = [...PERMISSIONS, WILDCARD_PERMISSION];
 
 export const ROLE_NAMES = [
-  'VISITOR',
   'FOREST_EXPLORER',
   'COMPANY_REPRESENTATIVE',
   'GOVERNMENT_FOREST_OFFICER',
@@ -146,7 +145,7 @@ export interface RoleDefinition {
   permissions: string[];
 }
 
-const VISITOR_PERMISSIONS = [
+const PUBLIC_DATA_PERMISSIONS = [
   'forests:read_public',
   'protected-areas:read',
   'tree-species:read',
@@ -157,7 +156,7 @@ const VISITOR_PERMISSIONS = [
 ];
 
 const EXPLORER_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'forests:read',
   'zones:read',
   'inventory:read',
@@ -175,7 +174,7 @@ const EXPLORER_PERMISSIONS = [
 ];
 
 const COMPANY_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'forests:read',
   'zones:read',
   'inventory:read',
@@ -221,7 +220,7 @@ const COMPANY_PERMISSIONS = [
 ];
 
 const GOVERNMENT_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'forests:read',
   'forests:create',
   'forests:update',
@@ -284,7 +283,7 @@ const GOVERNMENT_PERMISSIONS = [
 ];
 
 const ENVIRONMENTAL_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'protected-areas:read',
   'protected-areas:create',
   'protected-areas:update',
@@ -320,7 +319,7 @@ const ENVIRONMENTAL_PERMISSIONS = [
 ];
 
 const INSPECTOR_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'forests:read',
   'zones:read',
   'inventory:read',
@@ -348,7 +347,7 @@ const INSPECTOR_PERMISSIONS = [
 ];
 
 const FIELD_OPERATOR_PERMISSIONS = [
-  ...VISITOR_PERMISSIONS,
+  ...PUBLIC_DATA_PERMISSIONS,
   'forests:read',
   'zones:read',
   'gis:read',
@@ -368,14 +367,6 @@ const FIELD_OPERATOR_PERMISSIONS = [
 ];
 
 const ROLE_DEFINITIONS: RoleDefinition[] = [
-  {
-    name: 'VISITOR',
-    label: 'Visitor',
-    description:
-      'Not-yet-verified account: browse public forest resources and register interest. No protected data.',
-    level: 0,
-    permissions: VISITOR_PERMISSIONS,
-  },
   {
     name: 'FOREST_EXPLORER',
     label: 'Forest Explorer',

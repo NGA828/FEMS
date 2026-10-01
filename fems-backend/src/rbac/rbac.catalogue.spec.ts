@@ -55,11 +55,10 @@ describe('RBAC catalogue', () => {
     }
   });
 
-  it('defines the eight system roles with unique names and stable ordering', () => {
+  it('defines the seven system roles with unique names and stable ordering', () => {
     expect(ROLES.map((role) => role.name)).toEqual([...ROLE_NAMES]);
     expect(new Set(ROLES.map((role) => role.name)).size).toBe(ROLES.length);
     const expectedLevels: Record<string, number> = {
-      VISITOR: 0,
       FOREST_EXPLORER: 10,
       COMPANY_REPRESENTATIVE: 20,
       FIELD_OPERATOR: 25,

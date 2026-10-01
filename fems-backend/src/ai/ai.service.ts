@@ -43,7 +43,7 @@ import {
   toAlertRecord,
   type Finding,
 } from './anomaly-analyzer';
-import { GeminiClient, AiNotConfiguredError, AiProviderError } from './gemini.client';
+import { OpenRouterClient, AiNotConfiguredError, AiProviderError } from './openrouter.client';
 import {
   ALERT_ACTION_PERMISSIONS,
   ALERT_ACTIONS,
@@ -62,6 +62,7 @@ import {
   ASSISTANT_SYSTEM_INSTRUCTION,
   ASSISTANT_DISCLAIMER,
   answerFromContext,
+  buildAssistantHistory,
   buildAssistantContext,
   detectIntent,
   renderContextForProvider,
@@ -109,7 +110,7 @@ const ALERT_REVIEWER_ROLES = [
  *   - Forest Intelligence: a deterministic rule engine over the live database
  *     raises labelled *signals* (never accusations) that an officer must review.
  *   - Forest Assistant: answers questions from the records the caller is
- *     authorised to read; Google Gemini is used only when a key is configured,
+ *     authorised to read; OpenRouter is used only when a key is configured,
  *     and only as a narrator of data FEMS has already authorised.
  */
 @Injectable()
@@ -121,12 +122,12 @@ export class AiService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly gis: GisService,
-    private readonly gemini: GeminiClient,
+    private readonly openRouter: OpenRouterClient,
   ) {}
 
   // ------------------------------------------------------------------- status
 
-  /** What the module can do right now — including whether Gemini is configured. */
+  /** What the module can do right now — including whether OpenRouter is configured. */
   async status(user: AuthenticatedUser) {
     const [totalAlerts, pendingAlerts, lastAnalysis, conversations] = await Promise.all([
       this.prisma.aIAlert.count({ where: { ...this.alertScope(user) } }),
@@ -139,17 +140,17 @@ export class AiService {
       this.prisma.aIConversation.count({ where: { userId: user.id, archivedAt: null } }),
     ]);
 
-    const provider = this.gemini.describe();
+    const provider = this.openRouter.describe();
     return {
       provider: provider.provider,
-      geminiConfigured: provider.configured,
+      providerConfigured: provider.configured,
       model: provider.model,
       deterministicEngine: {
         version: DETECTOR_VERSION,
         rules: ANALYSIS_RULES.map((rule) => ({ code: rule.code, label: rule.label, alertType: rule.alertType })),
         thresholds: ANALYSIS_THRESHOLDS,
         description:
-          'A rule engine that computes from records already stored in FEMS. It runs with or without Gemini and always produces the alerts; Gemini only writes narrative summaries.',
+          'A rule engine that computes from records already stored in FEMS. It runs with or without OpenRouter and always produces the alerts; OpenRouter only writes narrative summaries.',
       },
       capabilities: {
         canRunAnalysis: hasPermission(user, 'ai:analysis_run'),
@@ -176,7 +177,7 @@ export class AiService {
   /** Rule catalogue, thresholds and the assistant's data sections. */
   catalogue() {
     return {
-      provider: this.gemini.describe(),
+      provider: this.openRouter.describe(),
       detectorVersion: DETECTOR_VERSION,
       rules: ANALYSIS_RULES.map((rule) => ({
         code: rule.code,
@@ -206,7 +207,7 @@ export class AiService {
 
   /**
    * Runs the deterministic engine over the caller's scope, stores the analysis
-   * and raises one NEW alert per new signal. Gemini, when configured, is asked
+   * and raises one NEW alert per new signal. OpenRouter, when configured, is asked
    * for a narrative summary *after* the facts are computed — it cannot change a
    * risk level, a status or a finding.
    */
@@ -239,16 +240,16 @@ export class AiService {
         if (alert) created.push({ id: alert.id, reference: alert.reference, type: alert.type, riskLevel: alert.riskLevel });
       }
 
-      // Optional narrative from Gemini. It only ever describes what the rules found.
+      // Optional narrative from OpenRouter. It only ever describes what the rules found.
       let narrative = describeOutcome(outcome);
       let provider: AiProvider = AiProvider.LOCAL_RULE_ENGINE;
       let model: string | null = null;
       let tokensUsed: number | null = null;
       let providerError: string | null = null;
 
-      if (dto.useProvider !== false && this.gemini.isConfigured) {
+      if (dto.useProvider !== false && this.openRouter.isConfigured) {
         try {
-          const response = await this.gemini.generate({
+          const response = await this.openRouter.generate({
             systemInstruction: ASSISTANT_SYSTEM_INSTRUCTION,
             prompt: [
               'Summarise this FEMS forest-intelligence run for a forestry officer.',
@@ -270,12 +271,12 @@ export class AiService {
             ].join('\n'),
           });
           narrative = response.text;
-          provider = AiProvider.GEMINI;
+          provider = AiProvider.OPENROUTER;
           model = response.model;
           tokensUsed = response.tokensUsed;
         } catch (error) {
-          providerError = error instanceof Error ? error.message : 'Gemini call failed';
-          this.logger.warn(`Analysis ${analysis.id}: Gemini narrative unavailable — ${providerError}`);
+          providerError = error instanceof Error ? error.message : 'OpenRouter call failed';
+          this.logger.warn(`Analysis ${analysis.id}: OpenRouter narrative unavailable — ${providerError}`);
         }
       }
 
@@ -308,7 +309,7 @@ export class AiService {
           provider,
           model,
           resultJson: stringifyJson(result),
-          responseJson: provider === AiProvider.GEMINI ? stringifyJson({ narrative }) : null,
+          responseJson: provider === AiProvider.OPENROUTER ? stringifyJson({ narrative }) : null,
           summary: narrative,
           riskLevel: outcome.findings.length ? outcomeRisk(outcome) : RiskLevel.LOW,
           confidence: outcome.findings.length ? outcomeConfidence(outcome) : 0,
@@ -353,14 +354,14 @@ export class AiService {
         result,
         alerts: created.length,
         duplicatesSkipped: outcome.duplicates,
-        providerConfigured: this.gemini.isConfigured,
+        providerConfigured: this.openRouter.isConfigured,
         providerError,
         notes: [
           'Signals are raised with status NEW and must be reviewed by an officer.',
           'The deterministic rule engine produced every risk level and every figure above; no model decided them.',
-          ...(providerError ? [`The Gemini narrative was unavailable: ${providerError}`] : []),
-          ...(dto.useProvider !== false && !this.gemini.isConfigured
-            ? ['GEMINI_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
+          ...(providerError ? [`The OpenRouter narrative was unavailable: ${providerError}`] : []),
+          ...(dto.useProvider !== false && !this.openRouter.isConfigured
+            ? ['OPENROUTER_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
             : []),
         ],
       };
@@ -683,7 +684,7 @@ export class AiService {
       ...summary,
       reviewSlaHours: slaHours,
       detectorVersion: DETECTOR_VERSION,
-      provider: this.gemini.describe().provider,
+      provider: this.openRouter.describe().provider,
       humanReview: {
         reviewed: reviewed.length,
         awaitingFirstReview: summary.awaitingReview,
@@ -752,6 +753,21 @@ export class AiService {
     const snapshot = await this.buildAssistantSnapshot(user, dto);
     const { allowed, decisions } = selectSections(user.permissions);
     const context = buildAssistantContext(snapshot, allowed, decisions);
+    const scopeFingerprint = JSON.stringify({
+      scope: this.describeScope(user, dto),
+      permissions: [...user.permissions].sort(),
+    });
+    const previousContext = parseJsonObject<{ scopeFingerprint?: string }>(conversation?.contextJson);
+    const previousMessages =
+      this.openRouter.isConfigured && conversation && previousContext?.scopeFingerprint === scopeFingerprint
+        ? await this.prisma.aIMessage.findMany({
+            where: { conversationId: conversation.id, role: { in: ['USER', 'ASSISTANT'] } },
+            orderBy: { createdAt: 'desc' },
+            take: 12,
+            select: { role: true, content: true },
+          })
+        : [];
+    const history = buildAssistantHistory(previousMessages.reverse());
 
     await this.prisma.aIMessage.create({
       data: {
@@ -763,7 +779,7 @@ export class AiService {
       },
     });
 
-    // 2 — answer: Gemini when configured, otherwise the deterministic reader.
+    // 2 — answer: OpenRouter when configured, otherwise the deterministic reader.
     const startedAt = Date.now();
     let answerText: string;
     let provider: AiProvider = AiProvider.LOCAL_RULE_ENGINE;
@@ -772,9 +788,9 @@ export class AiService {
     let providerError: string | null = null;
     const ruleAnswer = answerFromContext(question, context);
 
-    if (this.gemini.isConfigured) {
+    if (this.openRouter.isConfigured) {
       try {
-        const response = await this.gemini.generate({
+        const response = await this.openRouter.generate({
           systemInstruction: ASSISTANT_SYSTEM_INSTRUCTION,
           prompt: [
             `Question from ${user.firstName} ${user.lastName} (roles: ${user.roles.join(', ')}).`,
@@ -783,9 +799,10 @@ export class AiService {
             `Question: ${question}`,
             `Answer in the question's language. Mention that the data covers ${context.companyId ? 'their company only' : 'the scope of their role'}.`,
           ].join('\n'),
+          history,
         });
         answerText = response.text;
-        provider = AiProvider.GEMINI;
+        provider = AiProvider.OPENROUTER;
         model = response.model;
         tokensUsed = response.tokensUsed;
       } catch (error) {
@@ -796,7 +813,7 @@ export class AiService {
               ? error.message
               : error instanceof Error
                 ? error.message
-                : 'Gemini call failed';
+                : 'OpenRouter call failed';
         this.logger.warn(`Assistant provider error: ${providerError}`);
         if (dto.fallbackToRules === false) {
           await this.prisma.aIMessage.create({
@@ -804,21 +821,21 @@ export class AiService {
               conversationId: activeConversation.id,
               role: 'ERROR',
               content: 'The AI provider could not answer this question.',
-              provider: AiProvider.GEMINI,
-              model: this.gemini.model,
+              provider: AiProvider.OPENROUTER,
+              model: this.openRouter.model,
               latencyMs: Date.now() - startedAt,
               errorMessage: providerError.slice(0, 500),
             },
           });
           throw new ServiceUnavailableException({
             code: 'AI_PROVIDER_UNAVAILABLE',
-            message: `The Gemini provider did not answer: ${providerError}`,
+            message: `The OpenRouter provider did not answer: ${providerError}`,
           });
         }
         answerText = `${ruleAnswer.text}\n\n(Note: the AI provider call failed — ${providerError} — so this answer was computed by the FEMS rule engine from the same authorised data.)`;
       }
     } else {
-      answerText = `${ruleAnswer.text}\n\n(Note: GEMINI_API_KEY is not configured, so this answer was computed by the FEMS rule engine from your authorised data.)`;
+      answerText = `${ruleAnswer.text}\n\n(Note: OPENROUTER_API_KEY is not configured, so this answer was computed by the FEMS rule engine from your authorised data.)`;
     }
 
     const latencyMs = Date.now() - startedAt;
@@ -845,6 +862,7 @@ export class AiService {
           sections: context.sections.map((section) => ({ key: section.key, records: section.records.length })),
           withheld: context.withheld,
           scope: this.describeScope(user, dto),
+          scopeFingerprint,
         }),
         ...(conversation ? {} : { title: question.slice(0, 120) }),
       },
@@ -871,7 +889,7 @@ export class AiService {
       answer: assistantMessage.content,
       provider,
       model: model ?? 'deterministic-rule-engine',
-      geminiConfigured: this.gemini.isConfigured,
+      providerConfigured: this.openRouter.isConfigured,
       providerError,
       intent: ruleAnswer.intent,
       latencyMs,

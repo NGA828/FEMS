@@ -1,5 +1,5 @@
 /**
- * Public forest catalogue for signed-out visitors.
+ * Public forest catalogue for signed-out viewers.
  *
  * A searchable, filterable, image-led listing of the public forest register and
  * protected areas. Tapping a card opens the public forest detail. No session is

@@ -11,7 +11,7 @@
  * draws with react-native-maps. Both take the same props.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,7 +38,6 @@ import {
   Section,
   SegmentedControl,
   SkeletonList,
-  StatTile,
   Tiny,
   Title,
   ToneScope,
@@ -53,6 +52,7 @@ const NEARBY_RADII = [10, 25, 50, 100] as const;
 export default function MapTab() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
   const params = useLocalSearchParams<{ forestId?: string; latitude?: string; longitude?: string; label?: string }>();
@@ -194,12 +194,13 @@ export default function MapTab() {
   };
 
   const band = accuracyBand(position.accuracyM);
+  const mapHeight = Math.min(Math.max(windowHeight * 0.42, 220), 420);
 
   return (
     <ToneScope tone="dark">
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         {/* ------------------------------------------------------------ map */}
-        <View style={{ height: '52%' }}>
+        <View style={{ height: mapHeight, minHeight: 220 }}>
           <MapCanvas
             center={center}
             zoom={zoom}
@@ -257,41 +258,6 @@ export default function MapTab() {
               </Pressable>
             </Row>
 
-            {filtersOpen ? (
-              <Card style={{ marginTop: 8 }}>
-                <Row justify="space-between" style={{ marginBottom: 8 }}>
-                  <Overline>Layers</Overline>
-                  <Pressable onPress={() => setHiddenLayers(new Set())} accessibilityRole="button" accessibilityLabel="Show every layer">
-                    <Tiny tone="faint">show all</Tiny>
-                  </Pressable>
-                </Row>
-                <Row gap={6} wrap>
-                  {(layers.data?.layers ?? []).map((layer) => {
-                    const type = String(layer.featureType);
-                    const hidden = hiddenLayers.has(type);
-                    return (
-                      <Pressable
-                        key={type}
-                        onPress={() => toggleLayer(type)}
-                        accessibilityRole="switch"
-                        accessibilityState={{ checked: !hidden }}
-                        accessibilityLabel={`${LAYER_LABELS[type] ?? type} layer, ${layer.count} features`}
-                      >
-                        <Row gap={6} style={{ opacity: hidden ? 0.4 : 1, marginBottom: 6 }}>
-                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: LAYER_COLORS[type] ?? theme.colors.primary }} />
-                          <Tiny>
-                            {LAYER_LABELS[type] ?? humanize(type)} · {layer.count}
-                          </Tiny>
-                        </Row>
-                      </Pressable>
-                    );
-                  })}
-                </Row>
-                <Caption tone="faint" style={{ marginTop: 4 }}>
-                  Counts come from the API; a hidden layer is only hidden on this device.
-                </Caption>
-              </Card>
-            ) : null}
           </View>
 
           {map.isLoading ? (
@@ -327,54 +293,101 @@ export default function MapTab() {
               contentContainerStyle={{ padding: 12, paddingBottom: insets.bottom + 24 }}
               refreshControl={<RefreshControl refreshing={map.isRefetching} onRefresh={() => map.refetch()} tintColor={theme.colors.primary} />}
               ListHeaderComponent={
-                selected ? (
-                  <Card style={{ marginBottom: 10 }}>
-                    <Row justify="space-between" style={{ marginBottom: 6 }}>
-                      <Overline>{humanize(String(selected.properties.featureType))}</Overline>
-                      <Pressable onPress={() => setSelectedId(null)} accessibilityRole="button" accessibilityLabel="Close the selected feature">
-                        <Ionicons name="close-outline" size={16} color={theme.colors.textMuted} />
-                      </Pressable>
-                    </Row>
-                    <Body style={{ fontWeight: '700', marginBottom: 4 }}>{selected.properties.label}</Body>
-                    {selected.properties.description ? <Caption tone="muted">{String(selected.properties.description)}</Caption> : null}
-                    <Row gap={8} wrap style={{ marginTop: 8 }}>
-                      {selected.properties.status ? <Badge label={String(selected.properties.status)} tone="neutral" compact /> : null}
-                      {selected.properties.severity ? <Badge label={String(selected.properties.severity)} tone="warning" compact /> : null}
-                      {selected.properties.isDemo ? <Badge label="DEMO" tone="info" compact /> : null}
-                      {selected.properties.recordedAt ? (
-                        <Tiny tone="faint">recorded {formatRelative(String(selected.properties.recordedAt), 'en')}</Tiny>
+                <>
+                  {filtersOpen ? (
+                    <Card style={{ marginBottom: 10 }}>
+                      <Row justify="space-between" style={{ marginBottom: 8 }}>
+                        <Overline>Layers</Overline>
+                        <Pressable onPress={() => setHiddenLayers(new Set())} accessibilityRole="button" accessibilityLabel="Show every layer">
+                          <Tiny tone="faint">show all</Tiny>
+                        </Pressable>
+                      </Row>
+                      <Row gap={6} wrap>
+                        {(layers.data?.layers ?? []).map((layer) => {
+                          const type = String(layer.featureType);
+                          const hidden = hiddenLayers.has(type);
+                          return (
+                            <Pressable
+                              key={type}
+                              onPress={() => toggleLayer(type)}
+                              accessibilityRole="switch"
+                              accessibilityState={{ checked: !hidden }}
+                              accessibilityLabel={`${LAYER_LABELS[type] ?? type} layer, ${layer.count} features`}
+                            >
+                              <Row gap={6} style={{ opacity: hidden ? 0.4 : 1, marginBottom: 6 }}>
+                                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: LAYER_COLORS[type] ?? theme.colors.primary }} />
+                                <Tiny>
+                                  {LAYER_LABELS[type] ?? humanize(type)} · {layer.count}
+                                </Tiny>
+                              </Row>
+                            </Pressable>
+                          );
+                        })}
+                      </Row>
+                      <Caption tone="faint" style={{ marginTop: 4 }}>
+                        Counts come from the API; a hidden layer is only hidden on this device.
+                      </Caption>
+                    </Card>
+                  ) : null}
+                  {statistics.data ? (
+                    <Row gap={6} wrap style={{ marginBottom: 10 }}>
+                      <Badge label={`Forests ${statistics.data.forests}`} tone="success" compact />
+                      <Badge label={`Zones ${statistics.data.zones}`} tone="primary" compact />
+                      <Badge label={`Check-ins ${statistics.data.fieldCheckins}`} tone="info" compact />
+                      {statistics.data.forestsWithoutBoundary > 0 ? (
+                        <Badge label={`No boundary ${statistics.data.forestsWithoutBoundary}`} tone="warning" compact />
                       ) : null}
                     </Row>
-                    <Row gap={8} style={{ marginTop: 10 }}>
-                      <Button
-                        label="Open record"
-                        size="sm"
-                        disabled={!['EXPLOITATION_ACTIVITY', 'INSPECTION', 'FIELD_OBSERVATION', 'AI_ALERT', 'ENVIRONMENTAL_VIOLATION'].includes(
-                          String(selected.properties.featureType),
-                        )}
-                        onPress={() => {
-                          if (!openFeature(selected)) toast.info('No detail screen', 'This feature type is shown on the map and in the forest register only.');
-                        }}
-                      />
-                      <Button
-                        label="Centre"
-                        size="sm"
-                        variant="secondary"
-                        icon="locate-outline"
-                        onPress={() => {
-                          setFocusId(selected.id);
-                          toast.info('Centred', selected.properties.label);
-                        }}
-                      />
-                    </Row>
-                    <Tiny tone="faint" style={{ marginTop: 8 }}>
-                      {(() => {
-                        const [longitude, latitude] = selected.geometry.coordinates as number[];
-                        return `${latitude.toFixed(5)}, ${longitude.toFixed(5)} · source ${String(selected.properties.source ?? 'register')}`;
-                      })()}
-                    </Tiny>
-                  </Card>
-                ) : null
+                  ) : null}
+                  {selected ? (
+                    <Card style={{ marginBottom: 10 }}>
+                      <Row justify="space-between" style={{ marginBottom: 6 }}>
+                        <Overline>{humanize(String(selected.properties.featureType))}</Overline>
+                        <Pressable onPress={() => setSelectedId(null)} accessibilityRole="button" accessibilityLabel="Close the selected feature">
+                          <Ionicons name="close-outline" size={16} color={theme.colors.textMuted} />
+                        </Pressable>
+                      </Row>
+                      <Body style={{ fontWeight: '700', marginBottom: 4 }}>{selected.properties.label}</Body>
+                      {selected.properties.description ? <Caption tone="muted">{String(selected.properties.description)}</Caption> : null}
+                      <Row gap={8} wrap style={{ marginTop: 8 }}>
+                        {selected.properties.status ? <Badge label={String(selected.properties.status)} tone="neutral" compact /> : null}
+                        {selected.properties.severity ? <Badge label={String(selected.properties.severity)} tone="warning" compact /> : null}
+                        {selected.properties.isDemo ? <Badge label="DEMO" tone="info" compact /> : null}
+                        {selected.properties.recordedAt ? (
+                          <Tiny tone="faint">recorded {formatRelative(String(selected.properties.recordedAt), 'en')}</Tiny>
+                        ) : null}
+                      </Row>
+                      <Row gap={8} wrap style={{ marginTop: 10 }}>
+                        <Button
+                          label="Open record"
+                          size="sm"
+                          disabled={!['EXPLOITATION_ACTIVITY', 'INSPECTION', 'FIELD_OBSERVATION', 'AI_ALERT', 'ENVIRONMENTAL_VIOLATION'].includes(
+                            String(selected.properties.featureType),
+                          )}
+                          onPress={() => {
+                            if (!openFeature(selected)) toast.info('No detail screen', 'This feature type is shown on the map and in the forest register only.');
+                          }}
+                        />
+                        <Button
+                          label="Centre"
+                          size="sm"
+                          variant="secondary"
+                          icon="locate-outline"
+                          onPress={() => {
+                            setFocusId(selected.id);
+                            toast.info('Centred', selected.properties.label);
+                          }}
+                        />
+                      </Row>
+                      <Tiny tone="faint" style={{ marginTop: 8 }}>
+                        {(() => {
+                          const [longitude, latitude] = selected.geometry.coordinates as number[];
+                          return `${latitude.toFixed(5)}, ${longitude.toFixed(5)} · source ${String(selected.properties.source ?? 'register')}`;
+                        })()}
+                      </Tiny>
+                    </Card>
+                  ) : null}
+                </>
               }
               ListEmptyComponent={
                 map.isLoading ? (
@@ -524,18 +537,6 @@ export default function MapTab() {
           )}
         </View>
 
-        {statistics.data ? (
-          <View style={{ paddingHorizontal: 12, paddingBottom: insets.bottom + 8 }}>
-            <Row gap={8} wrap>
-              <StatTile label="Forests" value={statistics.data.forests} icon="leaf-outline" />
-              <StatTile label="Zones" value={statistics.data.zones} icon="grid-outline" />
-              <StatTile label="Check-ins" value={statistics.data.fieldCheckins} icon="pin-outline" />
-              {statistics.data.forestsWithoutBoundary > 0 ? (
-                <StatTile label="No boundary" value={statistics.data.forestsWithoutBoundary} icon="help-circle-outline" tone="warning" />
-              ) : null}
-            </Row>
-          </View>
-        ) : null}
       </View>
     </ToneScope>
   );

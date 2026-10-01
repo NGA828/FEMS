@@ -10,9 +10,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_DEFAULT, UrlTile, type Region } from 'react-native-maps';
 import { DEFAULT_TILE_URL, deltasForZoom, type MapCanvasProps, type MapPoint } from './types';
 
-/** `{z}/{x}/{y}` is a Leaflet template; react-native-maps expects `{z}/{x}/{y}` too. */
-const TILE_TEMPLATE = DEFAULT_TILE_URL;
-
 export function MapCanvas({
   center,
   zoom,
@@ -56,7 +53,7 @@ export function MapCanvas({
         loadingBackgroundColor={tone === 'dark' ? '#05120E' : '#EDF3EC'}
         loadingIndicatorColor="#16653F"
       >
-        {TILE_TEMPLATE === DEFAULT_TILE_URL ? null : <UrlTile urlTemplate={TILE_TEMPLATE} maximumZ={19} />}
+        <UrlTile urlTemplate={DEFAULT_TILE_URL} maximumZ={19} />
 
         {userPosition ? (
           <>

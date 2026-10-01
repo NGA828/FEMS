@@ -408,6 +408,8 @@ enum RiskLevel {
 }
 
 enum AiProvider {
+  OPENROUTER
+  // Retained so existing Gemini-generated records remain readable.
   GEMINI
   LOCAL_RULE_ENGINE
 }

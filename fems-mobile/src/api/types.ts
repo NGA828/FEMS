@@ -31,8 +31,7 @@ export type RoleName =
   | 'FOREST_INSPECTOR'
   | 'FIELD_OPERATOR'
   | 'COMPANY_REPRESENTATIVE'
-  | 'FOREST_EXPLORER'
-  | 'VISITOR';
+  | 'FOREST_EXPLORER';
 
 export type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
@@ -765,7 +764,7 @@ export type AiAnalysisType =
   | 'PERMIT_REVIEW_ASSIST'
   | 'EXPLOITATION_PATTERN';
 export type AiAnalysisStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-export type AiProvider = 'GEMINI' | 'LOCAL_RULE_ENGINE';
+export type AiProvider = 'OPENROUTER' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
 
 export interface AiAlert {
   id: Identifier;
@@ -883,7 +882,7 @@ export interface AiRule {
 
 export interface AiStatus {
   provider: AiProvider;
-  geminiConfigured: boolean;
+  providerConfigured: boolean;
   model: string;
   deterministicEngine: {
     version: string;
@@ -947,8 +946,8 @@ export interface AssistantAnswer {
   answer: string;
   provider: AiProvider;
   model?: string | null;
-  /** False when GEMINI_API_KEY is absent; the rule engine produced the answer. */
-  geminiConfigured: boolean;
+  /** False when OPENROUTER_API_KEY is absent; the rule engine produced the answer. */
+  providerConfigured: boolean;
   providerError?: string | null;
   intent?: string | null;
   latencyMs: number;

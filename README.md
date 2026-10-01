@@ -50,6 +50,25 @@ JWT_REFRESH_SECRET="replace-with-a-different-long-random-secret"
 PAYMENT_PROVIDER="simulator"
 ```
 
+### Enable the conversational Forest Assistant
+
+The mobile app includes the Forest Assistant. Without an OpenRouter key it
+answers from the deterministic FEMS rule engine; to enable model-backed
+assistant answers and analysis summaries, create an OpenRouter API key and add
+it to `fems-backend\.env`:
+
+```env
+OPENROUTER_API_KEY="your-key"
+OPENROUTER_MODEL="openrouter/auto"
+```
+
+Restart the backend after changing `.env`. The key stays on the backend and is
+never sent to the mobile app. Each reply uses the caller's currently authorised
+FEMS records; follow-up turns are included only while the conversation's data
+scope and permissions remain unchanged. Never commit `.env` or share the key.
+Set `OPENROUTER_MODEL` to a specific OpenRouter model ID if you do not want
+OpenRouter to select a model automatically.
+
 The default XAMPP database config is:
 
 - database: `fems`

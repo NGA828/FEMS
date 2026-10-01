@@ -111,11 +111,11 @@ const status = await call('GET', '/ai/status', { token });
 check('GET /ai/status', status.status === 200, `HTTP ${status.status}`);
 check(
   'the module reports the provider configuration honestly',
-  typeof status.body?.data?.geminiConfigured === 'boolean' &&
-    (status.body.data.geminiConfigured
-      ? status.body.data.provider === 'GEMINI'
-      : status.body.data.provider === 'LOCAL_RULE_ENGINE' && status.body.data.message.includes('GEMINI_API_KEY')),
-  `provider=${status.body?.data?.provider} configured=${status.body?.data?.geminiConfigured}`,
+  typeof status.body?.data?.providerConfigured === 'boolean' &&
+    (status.body.data.providerConfigured
+      ? status.body.data.provider === 'OPENROUTER'
+      : status.body.data.provider === 'LOCAL_RULE_ENGINE' && status.body.data.message.includes('OPENROUTER_API_KEY')),
+  `provider=${status.body?.data?.provider} configured=${status.body?.data?.providerConfigured}`,
 );
 check(
   'the deterministic engine publishes the rules that actually run',
@@ -180,7 +180,7 @@ check(
 );
 check(
   'the empty-provider situation is stated instead of faked',
-  JSON.stringify(run?.notes ?? []).includes('GEMINI_API_KEY is empty'),
+  JSON.stringify(run?.notes ?? []).includes('OPENROUTER_API_KEY is empty'),
   JSON.stringify(run?.notes ?? []).slice(0, 120),
 );
 check(
@@ -404,8 +404,8 @@ const ask = await call('POST', '/ai/assistant/ask', { token, body: { question: '
 check('POST /ai/assistant/ask', ask.status === 201, `HTTP ${ask.status} ${ask.body?.error?.code ?? ''}`);
 check(
   'the answer states that no provider is configured instead of pretending',
-  ask.body?.data?.geminiConfigured === false && ask.body?.data?.provider === 'LOCAL_RULE_ENGINE' &&
-    String(ask.body?.data?.answer ?? '').includes('GEMINI_API_KEY is not configured'),
+  ask.body?.data?.providerConfigured === false && ask.body?.data?.provider === 'LOCAL_RULE_ENGINE' &&
+    String(ask.body?.data?.answer ?? '').includes('OPENROUTER_API_KEY is not configured'),
   `provider=${ask.body?.data?.provider}`,
 );
 check(

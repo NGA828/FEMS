@@ -4,7 +4,7 @@
  * The form posts to `/auth/login`; the backend applies lockout after repeated
  * failures and reports the reason (bad credentials, unverified address, locked or
  * suspended account) with a machine-readable code, which is what the user sees.
- * Demo accounts are listed so a reviewer can sign in as any of the eight roles —
+ * Demo accounts are listed so a reviewer can sign in as each seeded account —
  * they are the seeded accounts, not a bypass.
  */
 import React, { useMemo, useState } from 'react';
@@ -30,7 +30,6 @@ const DEMO_ACCOUNTS: { email: string; role: string; label: string }[] = [
   { email: 'demo.company@fems.cm', role: 'Company', label: 'Applications, payments' },
   { email: 'demo.cooperative@fems.cm', role: 'Cooperative', label: 'Community forest' },
   { email: 'demo.explorer@fems.cm', role: 'Explorer', label: 'Public data, AI assistant' },
-  { email: 'demo.visitor@fems.cm', role: 'Visitor', label: 'Restricted account' },
 ];
 
 const DEMO_PASSWORD = 'FemsDemo#2026';

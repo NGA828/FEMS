@@ -147,16 +147,16 @@ export default function SettingsScreen() {
           <Card>
             <Row justify="space-between" style={{ marginBottom: 8 }}>
               <Body style={{ fontWeight: '700' }}>{ai.data.provider}</Body>
-              <Badge label={ai.data.geminiConfigured ? 'Gemini configured' : 'rule engine only'} tone={ai.data.geminiConfigured ? 'success' : 'warning'} />
+              <Badge label={ai.data.providerConfigured ? 'OpenRouter configured' : 'rule engine only'} tone={ai.data.providerConfigured ? 'success' : 'warning'} />
             </Row>
             <Definition label="Detector" value={ai.data.deterministicEngine.version} />
             <Definition label="Rules in the engine" value={formatNumber(ai.data.deterministicEngine.rules.length)} />
             <Definition label="Alert review SLA" value={`${ai.data.capabilities.alertReviewSlaHours} hours`} />
             <Definition label="Max assistant question" value={`${formatNumber(ai.data.capabilities.maxQuestionLength)} characters`} />
             <Caption tone="muted" style={{ marginTop: 8 }}>
-              {ai.data.geminiConfigured
-                ? 'Gemini is configured, so analyses and assistant answers may be produced by the model. Every output still requires a human decision.'
-                : 'No Gemini key is configured. FEMS runs its deterministic rule engine instead — real findings computed from the database, never invented text.'}
+              {ai.data.providerConfigured
+                ? 'OpenRouter is configured, so analyses and assistant answers may be produced by the model. Every output still requires a human decision.'
+                : 'No OpenRouter key is configured. FEMS runs its deterministic rule engine instead — real findings computed from the database, never invented text.'}
             </Caption>
           </Card>
         ) : (

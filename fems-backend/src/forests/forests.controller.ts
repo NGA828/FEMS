@@ -23,7 +23,7 @@ export class ForestsController {
   @ApiOperation({
     summary: 'List forests (public catalogue)',
     description:
-      'Publicly listed forests are visible without a token (forest explorers, visitors). Officers see every forest, including non-public ones and drafts.',
+      'Publicly listed forests are visible without a token (signed-out viewers and forest explorers). Officers see every forest, including non-public ones and drafts.',
   })
   async list(@OptionalAuth() user: AuthenticatedUser | undefined, @Query() query: ForestQueryDto) {
     const { items, total } = await this.forests.listForests(user, query);

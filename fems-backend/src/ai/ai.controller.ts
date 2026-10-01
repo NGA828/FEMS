@@ -23,7 +23,7 @@ export class AiController {
   @ApiOperation({
     summary: 'AI module status for the caller',
     description:
-      'Reports whether Gemini is configured, which deterministic rules exist, what the caller may do and how many alerts are waiting for a review.',
+      'Reports whether OpenRouter is configured, which deterministic rules exist, what the caller may do and how many alerts are waiting for a review.',
   })
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.ai.status(user);
@@ -44,7 +44,7 @@ export class AiController {
     summary: 'Run a forest-intelligence analysis',
     description:
       'Computes over the live database with the caller’s scope. The deterministic rule engine always runs and produces the findings; ' +
-      'Gemini, when configured, only writes the narrative summary. Every finding becomes an alert with status NEW for an officer to review.',
+      'OpenRouter, when configured, only writes the narrative summary. Every finding becomes an alert with status NEW for an officer to review.',
   })
   runAnalysis(@CurrentUser() user: AuthenticatedUser, @Body() dto: RunAnalysisDto) {
     return this.ai.runAnalysis(user, dto);
@@ -113,8 +113,8 @@ export class AiController {
   @ApiOperation({
     summary: 'Ask the Forest Assistant',
     description:
-      'The backend authorises the question first: only the sections the caller may read are sent to Gemini, and a company account is pinned to its own records. ' +
-      'With no Gemini key configured, the deterministic reader answers from the same authorised data and says so.',
+      'The backend authorises the question first: only the sections the caller may read are sent to OpenRouter, and a company account is pinned to its own records. ' +
+      'With no OpenRouter key configured, the deterministic reader answers from the same authorised data and says so.',
   })
   ask(@CurrentUser() user: AuthenticatedUser, @Body() dto: AskAssistantDto) {
     return this.ai.ask(user, dto);

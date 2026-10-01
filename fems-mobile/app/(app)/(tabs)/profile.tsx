@@ -8,7 +8,7 @@
  * list the guards use, so there is nothing to edit here.
  */
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +47,7 @@ import { formatDateTime, formatRelative, fullName, userStatusLabel } from '../..
 export default function ProfileScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
   const { user, permissions, roles, signOut, refreshUser, hasPermission, devWarnings, primaryRole } = useAuth();
@@ -202,11 +203,21 @@ export default function ProfileScreen() {
             </>
           ) : (
             <>
-              <Definition label="Email" value={user?.email ?? '—'} />
-              <Definition label="Phone" value={user?.phone ?? '—'} />
-              <Definition label="Job title" value={user?.jobTitle ?? '—'} />
-              <Definition label="Member since" value={user?.createdAt ? formatDateTime(user.createdAt, language) : '—'} />
-              <Definition label="Last sign-in" value={user?.lastLoginAt ? formatRelative(user.lastLoginAt, language) : '—'} />
+              <Row wrap align="flex-start" gap={12}>
+                <Definition label="Email" value={user?.email ?? '—'} style={{ flexBasis: width < 360 ? '100%' : '46%' }} />
+                <Definition label="Phone" value={user?.phone ?? '—'} style={{ flexBasis: width < 360 ? '100%' : '46%' }} />
+                <Definition label="Job title" value={user?.jobTitle ?? '—'} style={{ flexBasis: width < 360 ? '100%' : '46%' }} />
+                <Definition
+                  label="Member since"
+                  value={user?.createdAt ? formatDateTime(user.createdAt, language) : '—'}
+                  style={{ flexBasis: width < 360 ? '100%' : '46%' }}
+                />
+                <Definition
+                  label="Last sign-in"
+                  value={user?.lastLoginAt ? formatRelative(user.lastLoginAt, language) : '—'}
+                  style={{ flexBasis: width < 360 ? '100%' : '46%' }}
+                />
+              </Row>
             </>
           )}
         </Card>

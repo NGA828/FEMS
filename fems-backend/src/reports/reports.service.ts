@@ -1008,7 +1008,10 @@ export class ReportsService {
         { label: 'Confirmed by an officer', value: String(rows.filter((row) => row.status === 'CONFIRMED').length) },
         { label: 'Dismissed', value: String(rows.filter((row) => row.status === 'DISMISSED').length) },
         { label: 'Resolved', value: String(rows.filter((row) => row.status === 'RESOLVED').length) },
-        { label: 'Detected by Gemini', value: String(rows.filter((row) => row.detector === 'GEMINI').length) },
+        {
+          label: 'Narrative provider used',
+          value: String(rows.filter((row) => row.detector === 'OPENROUTER' || row.detector === 'GEMINI').length),
+        },
       ],
       notes: [
         'An alert is a signal, not a finding: only the review status recorded by an officer gives it any regulatory effect.',

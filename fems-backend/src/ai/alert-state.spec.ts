@@ -136,7 +136,7 @@ describe('alert-state', () => {
       expect(position.detectorLabel).toBe('FEMS rule engine');
     });
 
-    it('makes it obvious that a Gemini-narrated alert is still a machine signal', () => {
+    it('makes it obvious that a model-narrated alert is still a machine signal', () => {
       const position = alertPosition(
         { status: AlertStatus.NEW, riskLevel: RiskLevel.LOW, detectedAt: now, detector: 'GEMINI', confidence: 0.4 },
         now,

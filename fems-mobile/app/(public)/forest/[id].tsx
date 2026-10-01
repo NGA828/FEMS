@@ -1,9 +1,9 @@
 /**
- * Public forest detail for signed-out visitors.
+ * Public forest detail for signed-out viewers.
  *
  * Shows the seeded cover, the forest's statutory facts, its management zones and
  * a link onto the GIS map centred on the forest's real coordinates. All reads are
- * public; actions that require a role prompt the visitor to sign in.
+ * public; actions that require a role prompt the viewer to sign in.
  */
 import React from 'react';
 import { ScrollView, View } from 'react-native';
@@ -90,10 +90,10 @@ export default function PublicForestDetail() {
       <Section title="Details" style={{ paddingHorizontal: 20 }}>
         <View style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.lg, padding: 16, borderWidth: 1, borderColor: theme.colors.border }}>
           <Row wrap gap={12}>
-            <Definition label="Region" value={data.region} />
-            <Definition label="Type" value={forestTypeLabel(data.type)} />
-            <Definition label="Zones" value={String(data._count?.zones ?? zones.data?.length ?? 0)} />
-            <Definition label="Permits" value={String(data._count?.permits ?? 0)} />
+            <Definition label="Region" value={data.region} style={{ flexGrow: 1, flexBasis: '46%' }} />
+            <Definition label="Type" value={forestTypeLabel(data.type)} style={{ flexGrow: 1, flexBasis: '46%' }} />
+            <Definition label="Zones" value={String(data._count?.zones ?? zones.data?.length ?? 0)} style={{ flexGrow: 1, flexBasis: '46%' }} />
+            <Definition label="Permits" value={String(data._count?.permits ?? 0)} style={{ flexGrow: 1, flexBasis: '46%' }} />
           </Row>
         </View>
       </Section>
