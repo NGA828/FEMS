@@ -183,7 +183,11 @@ export function appConfig(): AppConfig {
     notifications: {
       pushProvider: process.env.PUSH_PROVIDER ?? 'none',
       expoPushUrl: process.env.EXPO_PUSH_URL ?? 'https://exp.host/--/api/v2/push/send',
-      emailProvider: process.env.EMAIL_PROVIDER ?? 'none',
+      // An operator who filled in SMTP_HOST clearly wants email: default the
+      // provider to `smtp` in that case instead of silently staying `none`,
+      // which used to make the server report "configured" and "missing
+      // EMAIL_PROVIDER" at the same time.
+      emailProvider: process.env.EMAIL_PROVIDER || (process.env.SMTP_HOST ? 'smtp' : 'none'),
       smtp: {
         host: process.env.SMTP_HOST ?? '',
         port: num(process.env.SMTP_PORT, 587),

@@ -32,20 +32,60 @@ export class MailService {
   private transporter: Transporter | null = null;
 
   get isConfigured(): boolean {
-    const { smtp } = appConfig().notifications;
-    return Boolean(smtp.host);
+    return this.missingConfiguration().length === 0;
   }
 
   /** Lists the environment variables that must be provided to enable email. */
   missingConfiguration(): string[] {
     const { smtp, emailProvider } = appConfig().notifications;
     const missing: string[] = [];
+    if (emailProvider === 'none') missing.push('EMAIL_PROVIDER');
     if (!smtp.host) missing.push('SMTP_HOST');
     if (!smtp.port) missing.push('SMTP_PORT');
     if (!smtp.from) missing.push('SMTP_FROM');
     if (smtp.user && !smtp.password) missing.push('SMTP_PASSWORD');
-    if (emailProvider === 'none') missing.push('EMAIL_PROVIDER');
     return missing;
+  }
+
+  /**
+   * Non-secret description of the transport, for the administration screens.
+   * The password is never returned — only whether one is set.
+   */
+  describe(): {
+    provider: string;
+    configured: boolean;
+    missing: string[];
+    host: string | null;
+    port: number | null;
+    secure: boolean;
+    username: string | null;
+    passwordSet: boolean;
+    from: string | null;
+  } {
+    const { smtp, emailProvider } = appConfig().notifications;
+    return {
+      provider: emailProvider,
+      configured: this.isConfigured,
+      missing: this.missingConfiguration(),
+      host: smtp.host || null,
+      port: smtp.host ? smtp.port : null,
+      secure: smtp.port === 465,
+      username: smtp.user ? this.maskAddress(smtp.user) : null,
+      passwordSet: Boolean(smtp.password),
+      from: smtp.from || null,
+    };
+  }
+
+  /** Drops the cached transporter so a configuration change is picked up. */
+  resetTransport(): void {
+    this.transporter = null;
+  }
+
+  private maskAddress(value: string): string {
+    const [local, domain] = value.split('@');
+    if (!domain) return `${value.slice(0, 2)}***`;
+    const head = local.slice(0, Math.min(2, local.length));
+    return `${head}${'*'.repeat(Math.max(1, local.length - head.length))}@${domain}`;
   }
 
   private getTransporter(): Transporter {
@@ -147,6 +187,36 @@ export class MailService {
          <p>Use this code to choose a new FEMS password. It is valid for ${minutes} minutes.</p>
          <p style="font-size:22px;letter-spacing:3px;font-weight:700;color:#14532d">${this.escape(token)}</p>
          <p style="color:#6b7280;font-size:13px">If you did not request this, your account may be at risk — change your password and notify an administrator.</p>`,
+      ),
+    });
+  }
+
+  /**
+   * Delivery test used by `POST /system/integrations/mail/test`. It goes
+   * through exactly the same transport as a production notification, so a
+   * success here proves real deliverability rather than a reachable socket.
+   */
+  sendTestEmail(to: string, requestedBy: string): Promise<MailResult> {
+    const stamp = new Date().toISOString();
+    const transport = this.describe();
+    return this.send({
+      to,
+      subject: 'FEMS — email delivery test',
+      text:
+        `This is a FEMS email delivery test requested by ${requestedBy}.\n\n` +
+        `If you are reading this, transactional email works: verification codes, password resets ` +
+        `and notification emails will reach their recipients.\n\n` +
+        `Host: ${transport.host}:${transport.port}\nFrom: ${transport.from}\nSent at: ${stamp}\n\n— FEMS`,
+      html: this.wrap(
+        'Email delivery test',
+        `<p>This is a FEMS email delivery test requested by <strong>${this.escape(requestedBy)}</strong>.</p>
+         <p>If you are reading this, transactional email works: verification codes, password resets and
+            notification emails will reach their recipients.</p>
+         <table style="font-size:13px;color:#4b5563;border-collapse:collapse">
+           <tr><td style="padding:2px 12px 2px 0">Host</td><td>${this.escape(`${transport.host}:${transport.port}`)}</td></tr>
+           <tr><td style="padding:2px 12px 2px 0">From</td><td>${this.escape(transport.from ?? '')}</td></tr>
+           <tr><td style="padding:2px 12px 2px 0">Sent at</td><td>${this.escape(stamp)}</td></tr>
+         </table>`,
       ),
     });
   }

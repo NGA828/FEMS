@@ -263,3 +263,78 @@ Make sure the backend is running on port 3000 and that `EXPO_PUBLIC_API_URL` poi
 - The backend expects environment variables from [fems-backend/.env.example](./fems-backend/.env.example).
 - Payment integrations default to a simulator in local development unless you configure Campay credentials.
 - Docker is optional; the documented local database setup uses XAMPP MySQL.
+
+## Email delivery (SMTP)
+
+FEMS sends transactional email for account verification codes, password-reset
+codes and any notification whose **Email** channel is enabled on the account.
+Nothing is faked: when SMTP is not configured the API reports
+`NOT_CONFIGURED`/`FAILED` instead of claiming a message was delivered, and
+(outside production) returns the verification code in the response so the flow
+stays testable.
+
+### 1) Create a Gmail App password
+
+1. Use a dedicated sending account, e.g. `fems.notifications@gmail.com`.
+2. Enable 2-Step Verification:
+   <https://myaccount.google.com/signinoptions/two-step-verification>
+3. Create an **App password** (type *Mail*):
+   <https://myaccount.google.com/apppasswords> — Google returns 16 characters.
+   A normal account password is rejected with
+   `535-5.7.8 Username and Password not accepted`.
+
+### 2) Configure the backend
+
+Add to `fems-backend/.env` (never commit it):
+
+```env
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=fems.notifications@gmail.com
+SMTP_PASSWORD=abcdefghijklmnop
+SMTP_FROM="FEMS <fems.notifications@gmail.com>"
+```
+
+`SMTP_FROM` must be the sending mailbox (or one of its aliases), otherwise Gmail
+rewrites or rejects the sender. Port `587` uses STARTTLS; port `465` uses
+implicit TLS and is also supported.
+
+### 3) Verify it works
+
+Without starting the API:
+
+```bash
+npm run mail:verify                      # configuration + SMTP handshake
+npm run mail:verify -- you@example.com   # also sends a real test message
+```
+
+The script explains the exact failure (bad credentials, blocked port, TLS) and
+exits non-zero when email would not be delivered.
+
+With the API running, it logs the transport state at boot:
+
+```text
+[Bootstrap] Email delivery ready: smtp.gmail.com:587 as FEMS <fems.notifications@gmail.com>
+```
+
+and administrators can check or test it from the app or over HTTP:
+
+| Route | Permission | Purpose |
+|---|---|---|
+| `GET /api/v1/system/integrations` | `settings:read` | Email, push, payments, AI, storage and database status in one call |
+| `GET /api/v1/system/integrations/mail` | `settings:read` | SMTP configuration (never the password) + live handshake |
+| `POST /api/v1/system/integrations/mail/test` | `settings:manage` | Sends a real test email; the SMTP response is returned verbatim and written to the audit trail |
+
+In the mobile app: **Settings → Email delivery** shows the same status and has a
+*Send test email* button for administrators.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `missing: EMAIL_PROVIDER` | `EMAIL_PROVIDER=none`. Set it to `smtp` (or just fill `SMTP_HOST` — that now implies `smtp`). |
+| `535 Username and Password not accepted` | A normal Google password was used, or 2-Step Verification is off. Create an App password. |
+| `ETIMEDOUT` / `ECONNREFUSED` | Outbound port 587/465 is blocked on the network, or the host is wrong. |
+| Mail works locally, not after deploy | The `.env` of the deployed API has no SMTP values — they are not baked into the build. |
+| Message sent but not received | Check the spam folder on the first send, and that `SMTP_FROM` matches `SMTP_USER`. |

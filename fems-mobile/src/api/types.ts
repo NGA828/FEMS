@@ -1342,6 +1342,36 @@ export interface HealthStatus {
 
 export type DashboardStatistics = Record<string, never>;
 
+// ------------------------------------------------------------- integrations
+
+/** How an external dependency reports itself (`GET /system/integrations`). */
+export type IntegrationState = 'READY' | 'DISABLED' | 'MISCONFIGURED' | 'UNREACHABLE';
+
+export interface IntegrationReport {
+  key: 'mail' | 'push' | 'payments' | 'ai' | 'storage' | 'database' | string;
+  label: string;
+  state: IntegrationState;
+  summary: string;
+  /** Environment variables the server still needs. */
+  missing: string[];
+  details: Record<string, unknown>;
+}
+
+export interface IntegrationsPayload {
+  checkedAt: IsoDate;
+  environment: string;
+  integrations: IntegrationReport[];
+}
+
+export interface MailTestResult {
+  recipient: string;
+  status: 'SENT' | 'NOT_CONFIGURED' | 'FAILED';
+  messageId: string | null;
+  error: string | null;
+  transport: { host: string | null; port: number | null; from: string | null; secure: boolean };
+  message: string;
+}
+
 export type MediaOwnerType = 'FOREST' | 'PROTECTED_AREA' | 'TREE_SPECIES' | 'HERO' | 'BRAND';
 export type MediaRole = 'COVER' | 'GALLERY' | 'HERO' | 'LOGO';
 

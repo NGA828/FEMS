@@ -39,6 +39,9 @@ import type {
   GisPosition,
   GisStatistics,
   HealthStatus,
+  IntegrationReport,
+  IntegrationsPayload,
+  MailTestResult,
   Inspection,
   InspectionStatistics,
   NearbyResult,
@@ -706,6 +709,26 @@ export const filesApi = {
       .then((r) => r.data);
   },
   downloadUrl: (key: string) => api.buildUrl('/files/download', { key }),
+};
+
+// ---------------------------------------------------------------------- system
+
+export const systemApi = {
+  /**
+   * Integration status. `probe` performs the live checks (SMTP handshake);
+   * pass `false` for an instant, configuration-only answer.
+   */
+  integrations: (probe = true) =>
+    api.get<IntegrationsPayload>('/system/integrations', { params: { probe }, timeoutMs: 30_000 }).then((r) => r.data),
+
+  mailStatus: (probe = true) =>
+    api.get<IntegrationReport>('/system/integrations/mail', { params: { probe }, timeoutMs: 30_000 }).then((r) => r.data),
+
+  /** Sends a real message through the server's SMTP transport (admin only). */
+  sendTestEmail: (to?: string) =>
+    api
+      .post<MailTestResult>('/system/integrations/mail/test', to ? { to } : {}, { timeoutMs: 45_000, retries: 0 })
+      .then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------- health

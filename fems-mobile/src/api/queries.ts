@@ -24,6 +24,7 @@ import {
   paymentsApi,
   permitsApi,
   reportsApi,
+  systemApi,
   usersApi,
   violationsApi,
   type ActivityQuery,
@@ -110,6 +111,7 @@ export const queryKeys = {
   auditSummary: ['audit', 'summary'] as const,
   sessions: ['auth', 'sessions'] as const,
   notificationPreferences: ['auth', 'notification-preferences'] as const,
+  integrations: (probe: boolean) => ['system', 'integrations', probe] as const,
 };
 
 /** Invalidates every query under the given prefixes after a mutation. */
@@ -957,5 +959,32 @@ export function useRevokeSession() {
   return useMutation({
     mutationFn: (sessionId: string) => authApi.revokeSession(sessionId),
     onSuccess: () => invalidate(client, [queryKeys.sessions]),
+  });
+}
+
+// ------------------------------------------------------------------ system
+
+/**
+ * Integration status (email, push, payments, AI, storage, database).
+ * `probe` runs the live SMTP handshake on the server, so it is deliberately not
+ * refetched in the background — the Settings screen re-checks on demand.
+ */
+export function useIntegrations(probe = true, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.integrations(probe),
+    queryFn: () => systemApi.integrations(probe),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
+/** Sends a real test email through the server transport (settings:manage). */
+export function useSendTestEmail() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (to?: string) => systemApi.sendTestEmail(to),
+    onSuccess: () => invalidate(client, [queryKeys.integrations(true), queryKeys.integrations(false)]),
   });
 }

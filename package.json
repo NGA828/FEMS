@@ -16,6 +16,7 @@
     "db:reset": "npm --prefix fems-backend run db:reset",
     "mobile:start": "npm --prefix fems-mobile run start",
     "mobile:web": "npm --prefix fems-mobile run web",
-    "mobile:typecheck": "npm --prefix fems-mobile run typecheck"
+    "mobile:typecheck": "npm --prefix fems-mobile run typecheck",
+    "mail:verify": "npm --prefix fems-backend run mail:verify --"
   }
 }
