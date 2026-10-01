@@ -1,7 +1,7 @@
 /**
  * AI alert console — "Mission Control".
  *
- * Alerts are produced by the deterministic rule engine (and, when OpenRouter is
+ * Alerts are produced by the deterministic rule engine (and, when an AI provider is
  * configured, enriched by it). None of them accuses anyone: the console shows the
  * detector, the evidence, the confidence and the human-review state, and every
  * decision is taken here by an officer with `ai:alerts_review`.
@@ -115,7 +115,7 @@ export default function AlertsTab() {
                   <Overline style={{ marginBottom: 4 }}>Detection console</Overline>
                   <Title>AI alerts</Title>
                   <Caption tone="muted">
-                    Engine {status.data?.deterministicEngine.version ?? '—'} · {status.data?.providerConfigured ? 'OpenRouter enrichment active' : 'rule engine only'}
+                    Engine {status.data?.deterministicEngine.version ?? '—'} · {status.data?.providerConfigured ? `${status.data.provider} enrichment active` : 'rule engine only'}
                   </Caption>
                 </View>
                 {context.canRunAnalysis ? (
@@ -127,7 +127,7 @@ export default function AlertsTab() {
                 <View style={{ marginBottom: 12 }}>
                   <Notice tone="info" title="Deterministic engine only">
                     {status.data.message ??
-                      'OPENROUTER_API_KEY is not configured, so no narrative model is called. The rule engine below runs for real on the FEMS data and produces every alert you see here.'}
+                      'No AI provider key is configured, so no narrative model is called. The rule engine below runs for real on the FEMS data and produces every alert you see here.'}
                   </Notice>
                 </View>
               ) : null}

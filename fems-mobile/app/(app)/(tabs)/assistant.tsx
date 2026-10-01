@@ -5,7 +5,7 @@
  * API decides, from the caller's permissions, which sections of the register may
  * be sent to the model at all. The reply arrives with the scope the API actually
  * authorised and with anything it withheld — that transparency is the point, so it
- * is shown rather than hidden. With no OpenRouter key configured the deterministic
+ * is shown rather than hidden. With no provider key configured the deterministic
  * rule engine answers instead, and the screen says so.
  */
 import React, { useMemo, useRef, useState } from 'react';
@@ -317,7 +317,7 @@ export default function AssistantTab() {
               {item.role === 'ASSISTANT' && !item.error ? (
                 <>
                   <Row gap={6} wrap style={{ marginTop: 10 }}>
-                    <Badge label={item.provider === 'OPENROUTER' ? 'OpenRouter' : item.provider === 'GEMINI' ? 'Gemini (legacy)' : 'rule engine'} tone={item.provider === 'LOCAL_RULE_ENGINE' ? 'info' : 'success'} compact />
+                    <Badge label={item.provider && item.provider !== 'LOCAL_RULE_ENGINE' ? item.provider.toLowerCase() : 'rule engine'} tone={item.provider && item.provider !== 'LOCAL_RULE_ENGINE' ? 'success' : 'info'} compact />
                     {item.latencyMs !== null && item.latencyMs !== undefined ? <Badge label={`${item.latencyMs} ms`} tone="neutral" compact /> : null}
                   </Row>
                   {item.sections && item.sections.length > 0 ? (

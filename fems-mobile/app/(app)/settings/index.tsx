@@ -18,8 +18,10 @@ import {
   useAiStatus,
   useGisStatistics,
   useHealthCheck,
+  useIntegrations,
   useNotificationPreferences,
   usePaymentProvider,
+  useSendTestEmail,
   useUpdateNotificationPreference,
 } from '../../../src/api/queries';
 import { useAuth } from '../../../src/auth/AuthProvider';
@@ -41,6 +43,7 @@ import {
   Screen,
   Section,
   SkeletonList,
+  TextField,
   Tiny,
   useToast,
 } from '../../../src/ui';
@@ -49,7 +52,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const toast = useToast();
-  const { user, refreshUser, devWarnings } = useAuth();
+  const { user, refreshUser, devWarnings, hasPermission, hasAnyPermission } = useAuth();
 
   const preferences = useNotificationPreferences();
   const updatePreference = useUpdateNotificationPreference();
@@ -57,6 +60,37 @@ export default function SettingsScreen() {
   const ai = useAiStatus();
   const health = useHealthCheck();
   const gis = useGisStatistics();
+
+  // Integration status is administrator-only on the server; do not fire the
+  // request (and a guaranteed 403) for an account that cannot read it.
+  const canReadIntegrations = hasAnyPermission('settings:read', 'settings:manage');
+  const canMonitor = hasAnyPermission('system:monitor', 'system:health', 'settings:manage');
+  const canManageSettings = hasPermission('settings:manage');
+  const integrations = useIntegrations(true, canReadIntegrations);
+  const sendTestEmail = useSendTestEmail();
+
+  const mail = (integrations.data?.integrations ?? []).find((entry) => entry.key === 'mail');
+  const [testRecipient, setTestRecipient] = useState('');
+
+  const runMailTest = async () => {
+    try {
+      const result = await sendTestEmail.mutateAsync(testRecipient.trim() || undefined);
+      if (result.status === 'SENT') {
+        toast.success('Test email sent', result.message);
+      } else {
+        toast.error('The email was not delivered', result.error ?? result.message);
+      }
+    } catch (error) {
+      toast.error('Could not send the test email', error instanceof ApiError ? error.message : undefined);
+    }
+  };
+
+  const integrationTone = (state: string): 'success' | 'warning' | 'danger' | 'neutral' => {
+    if (state === 'READY') return 'success';
+    if (state === 'UNREACHABLE') return 'danger';
+    if (state === 'MISCONFIGURED') return 'warning';
+    return 'neutral';
+  };
 
   const [busyType, setBusyType] = useState<NotificationType | null>(null);
 
@@ -70,8 +104,6 @@ export default function SettingsScreen() {
       setBusyType(null);
     }
   };
-
-  const emailTransport = provider.data?.webhookConfigured;
 
   return (
     <Screen refresh={health.isRefetching ? { refreshing: true, onRefresh: () => health.refetch() } : undefined}>
@@ -112,6 +144,88 @@ export default function SettingsScreen() {
         ))}
       </Section>
 
+      {canReadIntegrations ? (
+        <Section title="Email delivery">
+          {integrations.isLoading ? (
+            <Tiny tone="faint">Checking the mail transport…</Tiny>
+          ) : integrations.isError ? (
+            <ErrorState error={integrations.error} onRetry={() => integrations.refetch()} />
+          ) : mail ? (
+            <Card>
+              <Row justify="space-between" style={{ marginBottom: 8 }}>
+                <Body style={{ fontWeight: '700', flex: 1 }}>{mail.label}</Body>
+                <Badge label={humanize(mail.state)} tone={integrationTone(mail.state)} />
+              </Row>
+              <Definition label="Host" value={mail.details.host ? `${mail.details.host}:${mail.details.port}` : 'not set'} tone={mail.details.host ? undefined : 'warning'} />
+              <Definition label="Encryption" value={mail.details.secure ? 'implicit TLS (465)' : 'STARTTLS (587)'} />
+              <Definition label="Account" value={(mail.details.username as string) ?? 'unauthenticated relay'} />
+              <Definition label="Password" value={mail.details.passwordSet ? 'set' : 'not set'} tone={mail.details.passwordSet ? undefined : 'warning'} />
+              <Definition label="Sends as" value={(mail.details.from as string) ?? '—'} />
+              {mail.missing.length ? (
+                <Notice tone="warning" title="Missing configuration">
+                  Set {mail.missing.join(', ')} in fems-backend/.env and restart the API. Until then FEMS sends no verification code,
+                  no password-reset code and no notification email — it reports the failure instead of pretending to deliver.
+                </Notice>
+              ) : (
+                <Caption tone="muted" style={{ marginTop: 6 }}>
+                  {mail.summary}
+                </Caption>
+              )}
+
+              {canManageSettings && mail.state !== 'DISABLED' ? (
+                <View style={{ marginTop: 12 }}>
+                  <TextField
+                    label="Send a test to"
+                    value={testRecipient}
+                    onChangeText={setTestRecipient}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder={user?.email ?? 'name@example.com'}
+                    help="Leave empty to send the test to your own account address."
+                  />
+                  <Button
+                    label="Send test email"
+                    icon="mail-outline"
+                    variant="secondary"
+                    loading={sendTestEmail.isPending}
+                    onPress={() => void runMailTest()}
+                  />
+                </View>
+              ) : null}
+            </Card>
+          ) : (
+            <Card>
+              <Caption tone="muted">The mail transport state could not be read.</Caption>
+            </Card>
+          )}
+        </Section>
+      ) : null}
+
+      {canReadIntegrations && (integrations.data?.integrations.length ?? 0) > 0 ? (
+        <Section title="Other integrations">
+          <Card>
+            {integrations.data?.integrations
+              .filter((entry) => entry.key !== 'mail')
+              .map((entry) => (
+                <View key={entry.key} style={{ marginBottom: 10 }}>
+                  <Row justify="space-between" align="center">
+                    <Body style={{ fontWeight: '600', flex: 1 }}>{entry.label}</Body>
+                    <Badge label={humanize(entry.state)} tone={integrationTone(entry.state)} compact />
+                  </Row>
+                  <Tiny tone="faint">{entry.summary}</Tiny>
+                </View>
+              ))}
+            <Button
+              label="Re-check integrations"
+              variant="secondary"
+              icon="refresh-outline"
+              loading={integrations.isFetching}
+              onPress={() => void integrations.refetch()}
+            />
+          </Card>
+        </Section>
+      ) : null}
+
       <Section title="Payments">
         {provider.isLoading ? (
           <Tiny tone="faint">Checking the provider…</Tiny>
@@ -147,7 +261,7 @@ export default function SettingsScreen() {
           <Card>
             <Row justify="space-between" style={{ marginBottom: 8 }}>
               <Body style={{ fontWeight: '700' }}>{ai.data.provider}</Body>
-              <Badge label={ai.data.providerConfigured ? 'OpenRouter configured' : 'rule engine only'} tone={ai.data.providerConfigured ? 'success' : 'warning'} />
+              <Badge label={ai.data.providerConfigured ? `${ai.data.provider} configured` : 'rule engine only'} tone={ai.data.providerConfigured ? 'success' : 'warning'} />
             </Row>
             <Definition label="Detector" value={ai.data.deterministicEngine.version} />
             <Definition label="Rules in the engine" value={formatNumber(ai.data.deterministicEngine.rules.length)} />
@@ -155,8 +269,8 @@ export default function SettingsScreen() {
             <Definition label="Max assistant question" value={`${formatNumber(ai.data.capabilities.maxQuestionLength)} characters`} />
             <Caption tone="muted" style={{ marginTop: 8 }}>
               {ai.data.providerConfigured
-                ? 'OpenRouter is configured, so analyses and assistant answers may be produced by the model. Every output still requires a human decision.'
-                : 'No OpenRouter key is configured. FEMS runs its deterministic rule engine instead — real findings computed from the database, never invented text.'}
+                ? `${ai.data.provider} (${ai.data.model}) is configured, so analyses and assistant answers may be written by the model. Every output still requires a human decision.`
+                : 'No AI provider key is configured. FEMS runs its deterministic rule engine instead — real findings computed from the database, never invented text.'}
             </Caption>
           </Card>
         ) : (
@@ -184,9 +298,26 @@ export default function SettingsScreen() {
           )}
           <Definition label="API base" value={apiConfig.baseUrl} tone="muted" />
           <Definition label="App version" value={Constants.expoConfig?.version ?? 'development build'} tone="muted" />
-          <Definition label="Mail transport" value={emailTransport ? 'webhook configured' : 'outbox only — no provider credentials'} tone={emailTransport ? 'success' : 'warning'} />
+          <Definition
+            label="Mail transport"
+            value={
+              mail
+                ? mail.state === 'READY'
+                  ? `verified — ${String(mail.details.host ?? '')}`
+                  : `${humanize(mail.state).toLowerCase()}${mail.missing.length ? ` (missing ${mail.missing.join(', ')})` : ''}`
+                : canReadIntegrations
+                  ? 'checking…'
+                  : 'visible to administrators only'
+            }
+            tone={mail ? (mail.state === 'READY' ? 'success' : 'warning') : 'muted'}
+          />
         </Card>
-        <Button label="Re-check now" variant="secondary" icon="refresh-outline" style={{ marginTop: 10 }} loading={health.isRefetching} onPress={() => { void health.refetch(); void provider.refetch(); void ai.refetch(); }} />
+        <Row gap={8} wrap style={{ marginTop: 10 }}>
+          <Button label="Re-check now" variant="secondary" icon="refresh-outline" loading={health.isRefetching} onPress={() => { void health.refetch(); void provider.refetch(); void ai.refetch(); if (canReadIntegrations) void integrations.refetch(); }} />
+          {canMonitor ? (
+            <Button label="System monitoring" icon="pulse-outline" onPress={() => router.push('/settings/monitoring')} />
+          ) : null}
+        </Row>
       </Section>
 
       {gis.data ? (

@@ -24,6 +24,7 @@ import {
   paymentsApi,
   permitsApi,
   reportsApi,
+  systemApi,
   usersApi,
   violationsApi,
   type ActivityQuery,
@@ -104,12 +105,16 @@ export const queryKeys = {
   companyStatistics: ['companies', 'statistics'] as const,
   users: (query?: unknown) => ['users', query] as const,
   user: (id: string) => ['user', id] as const,
+  userStatistics: ['users', 'statistics'] as const,
   roles: ['roles'] as const,
   roleList: ['roles', 'list'] as const,
   audit: (query?: unknown) => ['audit', query] as const,
   auditSummary: ['audit', 'summary'] as const,
   sessions: ['auth', 'sessions'] as const,
   notificationPreferences: ['auth', 'notification-preferences'] as const,
+  integrations: (probe: boolean) => ['system', 'integrations', probe] as const,
+  systemMetrics: ['system', 'metrics'] as const,
+  systemHealth: ['system', 'health'] as const,
 };
 
 /** Invalidates every query under the given prefixes after a mutation. */
@@ -852,7 +857,7 @@ export function useCreateUser() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) => usersApi.create(payload),
-    onSuccess: () => invalidate(client, [queryKeys.users()]),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.userStatistics]),
   });
 }
 
@@ -860,7 +865,7 @@ export function useSetUserStatus() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; status: string; reason?: string }) => usersApi.setStatus(input.id, input.status, input.reason),
-    onSuccess: (_data, variables) => invalidate(client, [queryKeys.users(), queryKeys.user(variables.id)]),
+    onSuccess: (_data, variables) => invalidate(client, [queryKeys.users(), queryKeys.user(variables.id), queryKeys.userStatistics]),
   });
 }
 
@@ -869,6 +874,52 @@ export function useResetUserPassword() {
   return useMutation({
     mutationFn: (input: { id: string; newPassword?: string }) => usersApi.resetPassword(input.id, input.newPassword),
     onSuccess: () => invalidate(client, [queryKeys.users()]),
+  });
+}
+
+export function useUserStatistics(enabled = true) {
+  return useQuery({ queryKey: queryKeys.userStatistics, queryFn: usersApi.statistics, staleTime: 60_000, enabled });
+}
+
+export function useUpdateUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => usersApi.update(id, payload),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+/** Grant a role to an account (`expiresAt` makes it a temporary assignment). */
+export function useGrantUserRole(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { role: string; expiresAt?: string }) => usersApi.grantRole(id, input.role, input.expiresAt),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+export function useRevokeUserRole(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (roleName: string) => usersApi.revokeRole(id, roleName),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+/** Soft-delete an account: it is deactivated and every session is revoked. */
+export function useDeactivateUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => usersApi.deactivate(id),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+export function useRestoreUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => usersApi.restore(id),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
   });
 }
 
@@ -957,5 +1008,59 @@ export function useRevokeSession() {
   return useMutation({
     mutationFn: (sessionId: string) => authApi.revokeSession(sessionId),
     onSuccess: () => invalidate(client, [queryKeys.sessions]),
+  });
+}
+
+// ------------------------------------------------------------------ system
+
+/**
+ * Integration status (email, push, payments, AI, storage, database).
+ * `probe` runs the live SMTP handshake on the server, so it is deliberately not
+ * refetched in the background — the Settings screen re-checks on demand.
+ */
+export function useIntegrations(probe = true, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.integrations(probe),
+    queryFn: () => systemApi.integrations(probe),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
+/**
+ * Runtime performance of the API process. Polled while the monitoring screen is
+ * open — the counters are in-memory on the server, so there is nothing to cache.
+ */
+export function useSystemMetrics(enabled = true, refetchMs = 15_000) {
+  return useQuery({
+    queryKey: queryKeys.systemMetrics,
+    queryFn: systemApi.metrics,
+    enabled,
+    refetchInterval: enabled ? refetchMs : false,
+    staleTime: 5_000,
+    retry: false,
+  });
+}
+
+/** Component-by-component health verdict (system:health). */
+export function useSystemHealth(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.systemHealth,
+    queryFn: systemApi.health,
+    enabled,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
+/** Sends a real test email through the server transport (settings:manage). */
+export function useSendTestEmail() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (to?: string) => systemApi.sendTestEmail(to),
+    onSuccess: () => invalidate(client, [queryKeys.integrations(true), queryKeys.integrations(false)]),
   });
 }

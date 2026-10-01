@@ -37,6 +37,8 @@ import {
   requiresPayerPhone,
 } from './payment-rules';
 import { SimulatorProvider } from './providers/simulator.provider';
+import { renderOfficialDocument } from '../common/pdf/official-document';
+import { buildPaymentReceipt, type ReceiptPayload } from './payment-receipt';
 import type { ProviderOutcome as ProviderOutcomeStatus } from './payment-rules';
 import type {
   CampayWebhookDto,
@@ -762,6 +764,32 @@ export class PaymentsService {
       },
       company: payment.company,
       permit: payment.permit,
+    };
+  }
+
+  /**
+   * The same receipt, rendered as the printable PDF a company files with its
+   * accounts. Built from `receipt()` so the document and the JSON can never
+   * disagree, and recorded in the audit trail like any other export.
+   */
+  async receiptPdf(user: AuthenticatedUser, id: string): Promise<{ buffer: Buffer; fileName: string; receiptNumber: string }> {
+    const receipt = await this.receipt(user, id);
+    const buffer = await renderOfficialDocument(buildPaymentReceipt(receipt as unknown as ReceiptPayload));
+
+    await this.audit.record({
+      action: AuditAction.EXPORT,
+      entityType: 'Payment',
+      entityId: id,
+      actorId: user.id,
+      actorEmail: user.email,
+      description: `Payment receipt downloaded: ${receipt.receiptNumber}`,
+      after: { receiptNumber: receipt.receiptNumber },
+    });
+
+    return {
+      buffer,
+      fileName: `${receipt.receiptNumber.replace(/[^A-Za-z0-9._-]+/g, '-')}.pdf`,
+      receiptNumber: receipt.receiptNumber,
     };
   }
 

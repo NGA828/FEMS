@@ -43,8 +43,7 @@ export const TAB_DEFINITIONS: Record<TabName, TabDefinition> = {
 };
 
 const ROLE_TABS: Record<RoleName, TabName[]> = {
-  SUPER_ADMIN: ['dashboard', 'permits', 'alerts', 'map', 'profile'],
-  ADMIN: ['dashboard', 'permits', 'alerts', 'map', 'profile'],
+  ADMINISTRATOR: ['dashboard', 'permits', 'alerts', 'map', 'profile'],
   GOVERNMENT_FOREST_OFFICER: ['dashboard', 'permits', 'field', 'alerts', 'profile'],
   ENVIRONMENTAL_OFFICER: ['dashboard', 'map', 'field', 'alerts', 'profile'],
   FOREST_INSPECTOR: ['dashboard', 'field', 'map', 'alerts', 'profile'],
@@ -53,10 +52,43 @@ const ROLE_TABS: Record<RoleName, TabName[]> = {
   FOREST_EXPLORER: ['dashboard', 'forests', 'assistant', 'map', 'profile'],
 };
 
+/**
+ * The account's governing role: the highest `level` the server granted, not
+ * simply the first element. An administrator who also holds an inspector role
+ * must still get the administrator navigation.
+ */
+export function primaryRoleSummary(user: AuthUser | null) {
+  const roles = user?.roles ?? [];
+  if (roles.length === 0) return null;
+  return [...roles].sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0] ?? null;
+}
+
+export function primaryRoleName(user: AuthUser | null): RoleName {
+  const roles = user?.roles ?? [];
+  if (roles.length === 0) return 'FOREST_EXPLORER';
+  const ranked = [...roles].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+  const known = ranked.find((role) => role.name in ROLE_TABS);
+  return (known?.name ?? ranked[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
+}
+
 export function tabsFor(user: AuthUser | null): TabDefinition[] {
-  const role = (user?.roles?.[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
-  const tabs = ROLE_TABS[role] ?? ROLE_TABS.FOREST_EXPLORER;
+  const role = primaryRoleName(user);
+  // A role the app does not know must never silently collapse to the narrowest
+  // experience: fall back to the permissions the server actually granted.
+  const tabs = ROLE_TABS[role] ?? tabsFromPermissions(user?.permissions ?? []);
   return tabs.map((name) => TAB_DEFINITIONS[name]);
+}
+
+function tabsFromPermissions(permissions: string[]): TabName[] {
+  const can = (permission: string) => permissions.includes('*') || permissions.includes(permission);
+  const tabs: TabName[] = ['dashboard'];
+  if (can('permits:read') || can('permits:read_own')) tabs.push('permits');
+  if (can('inspections:read') || can('inspections:read_own') || can('exploitation:read_own')) tabs.push('field');
+  if (can('ai:alerts_read')) tabs.push('alerts');
+  if (can('payments:read') || can('payments:read_own')) tabs.push('payments');
+  if (tabs.length < 5) tabs.push('map');
+  tabs.push('profile');
+  return Array.from(new Set(tabs)).slice(0, 5) as TabName[];
 }
 
 /** Presentation-level view of the signed-in account, derived from roles + company. */
@@ -90,8 +122,10 @@ export interface RoleContext {
 }
 
 export function roleContext(user: AuthUser | null, hasPermission: (permission: string) => boolean): RoleContext {
-  const role = (user?.roles?.[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
-  const isAdministrator = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const role = primaryRoleName(user);
+  // The wildcard grant is the server's own definition of an administrator, so
+  // it is authoritative even if the role vocabulary ever changes again.
+  const isAdministrator = role === 'ADMINISTRATOR' || hasPermission('*');
   const isCompanyAccount = Boolean(user?.company?.id) && !isAdministrator;
 
   return {

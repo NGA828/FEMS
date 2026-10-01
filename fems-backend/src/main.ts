@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import { appConfig } from './config/configuration';
+import { MailService } from './mail/mail.service';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -105,6 +106,26 @@ async function bootstrap(): Promise<void> {
   logger.log(`FEMS API listening on http://0.0.0.0:${config.port}/${config.apiPrefix}`);
   logger.log(`Swagger UI at http://0.0.0.0:${config.port}/${config.apiPrefix}/docs`);
   logger.log(`Environment: ${config.env}`);
+
+  // Email readiness is reported at boot — an operator should not discover that
+  // SMTP is wrong when a user asks for a password reset. The check never
+  // blocks startup: a mail outage must not take the API down.
+  void (async () => {
+    const mail = app.get(MailService, { strict: false });
+    const transport = mail.describe();
+    if (!transport.configured) {
+      logger.warn(
+        `Email delivery is OFF (missing: ${transport.missing.join(', ')}). Verification and password-reset codes will not be emailed. See fems-backend/.env.example → "Transactional email".`,
+      );
+      return;
+    }
+    const verification = await mail.verifyConnection();
+    if (verification.reachable) {
+      logger.log(`Email delivery ready: ${transport.host}:${transport.port} as ${transport.from}`);
+    } else {
+      logger.error(`Email delivery CONFIGURED BUT UNREACHABLE (${transport.host}:${transport.port}): ${verification.error}`);
+    }
+  })();
 }
 
 bootstrap().catch((error) => {

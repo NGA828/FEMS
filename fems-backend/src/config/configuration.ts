@@ -36,6 +36,19 @@ const bool = (value: string | undefined, fallback: boolean): boolean => {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 };
 
+/**
+ * Which AI provider answers. `AI_PROVIDER` wins when it names one; otherwise the
+ * provider is inferred from the key that is actually present, preferring Groq
+ * (free tier) over OpenRouter. No key at all means the deterministic rule engine.
+ */
+const aiProvider = (): 'groq' | 'openrouter' | 'none' => {
+  const explicit = (process.env.AI_PROVIDER ?? '').trim().toLowerCase();
+  if (explicit === 'groq' || explicit === 'openrouter' || explicit === 'none') return explicit;
+  if (process.env.GROQ_API_KEY) return 'groq';
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
+  return 'groq';
+};
+
 const list = (value: string | undefined): string[] =>
   (value || '')
     .split(',')
@@ -92,6 +105,11 @@ export interface AppConfig {
     };
   };
   ai: {
+    /** Which provider answers: Groq (default, free tier), OpenRouter, or none. */
+    provider: 'groq' | 'openrouter' | 'none';
+    groqApiKey: string;
+    groqModel: string;
+    groqBaseUrl: string;
     openRouterApiKey: string;
     openRouterModel: string;
     openRouterBaseUrl: string;
@@ -117,6 +135,15 @@ export interface AppConfig {
 }
 
 let cached: AppConfig | null = null;
+
+/**
+ * Drops the memoised configuration so a later `appConfig()` re-reads
+ * `process.env`. Used by the tests that exercise provider selection; the
+ * running API never calls it (configuration is read once at boot).
+ */
+export function resetConfigCache(): void {
+  cached = null;
+}
 
 export function appConfig(): AppConfig {
   if (cached) return cached;
@@ -172,6 +199,13 @@ export function appConfig(): AppConfig {
       },
     },
     ai: {
+      provider: aiProvider(),
+      groqApiKey: process.env.GROQ_API_KEY ?? '',
+      // Free on GroqCloud: 30 requests/minute, 1 000 requests and 100 000
+      // tokens per day. `llama-3.1-8b-instant` is the higher-volume free
+      // alternative, `openai/gpt-oss-120b` the stronger one.
+      groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+      groqBaseUrl: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
       openRouterApiKey: process.env.OPENROUTER_API_KEY ?? '',
       openRouterModel: process.env.OPENROUTER_MODEL ?? 'openrouter/auto',
       openRouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
@@ -183,7 +217,11 @@ export function appConfig(): AppConfig {
     notifications: {
       pushProvider: process.env.PUSH_PROVIDER ?? 'none',
       expoPushUrl: process.env.EXPO_PUSH_URL ?? 'https://exp.host/--/api/v2/push/send',
-      emailProvider: process.env.EMAIL_PROVIDER ?? 'none',
+      // An operator who filled in SMTP_HOST clearly wants email: default the
+      // provider to `smtp` in that case instead of silently staying `none`,
+      // which used to make the server report "configured" and "missing
+      // EMAIL_PROVIDER" at the same time.
+      emailProvider: process.env.EMAIL_PROVIDER || (process.env.SMTP_HOST ? 'smtp' : 'none'),
       smtp: {
         host: process.env.SMTP_HOST ?? '',
         port: num(process.env.SMTP_PORT, 587),
@@ -204,6 +242,22 @@ export function appConfig(): AppConfig {
   return cached;
 }
 
+/** The AI provider in force, as reported to clients (never the key itself). */
+export function aiIntegrationStatus() {
+  const { ai } = appConfig();
+  const key = ai.provider === 'groq' ? ai.groqApiKey : ai.provider === 'openrouter' ? ai.openRouterApiKey : '';
+  const configured = Boolean(key);
+  return {
+    selected: ai.provider,
+    provider: (configured ? (ai.provider === 'groq' ? 'GROQ' : 'OPENROUTER') : 'LOCAL_RULE_ENGINE') as 'GROQ' | 'OPENROUTER' | 'LOCAL_RULE_ENGINE',
+    configured,
+    model: configured ? (ai.provider === 'groq' ? ai.groqModel : ai.openRouterModel) : 'deterministic-rule-engine',
+    missing: configured ? [] : ai.provider === 'openrouter' ? ['OPENROUTER_API_KEY'] : ai.provider === 'none' ? [] : ['GROQ_API_KEY'],
+    /** Older clients read this name. */
+    providerConfigured: configured,
+  };
+}
+
 /** Integration status surfaced to clients (never leaks secret values). */
 export function integrationStatus() {
   const config = appConfig();
@@ -214,11 +268,7 @@ export function integrationStatus() {
         config.payments.campay.apiKey && config.payments.campay.username && config.payments.campay.password,
       ),
     },
-    ai: {
-      provider: config.ai.openRouterApiKey ? 'OPENROUTER' : 'LOCAL_RULE_ENGINE',
-      providerConfigured: Boolean(config.ai.openRouterApiKey),
-      model: config.ai.openRouterApiKey ? config.ai.openRouterModel : 'deterministic-rule-engine',
-    },
+    ai: aiIntegrationStatus(),
     notifications: {
       pushProvider: config.notifications.pushProvider,
       emailProvider: config.notifications.emailProvider,

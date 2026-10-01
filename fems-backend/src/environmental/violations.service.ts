@@ -19,6 +19,7 @@ import {
   ViolationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GisService } from '../gis/gis.service';
@@ -85,7 +86,10 @@ export class ViolationsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly gis: GisService,
-  ) {}
+    private readonly metrics: MetricsService,
+  ) {
+    this.metrics.declareJob('violation-remediation-sweep');
+  }
 
   // ------------------------------------------------------------------ reads
 
@@ -614,7 +618,11 @@ export class ViolationsService {
    * Uses one-day windows so a case produces exactly one "deadline approaching"
    * reminder and one "deadline passed" notice, however often the sweep runs.
    */
-  @Cron('30 5 * * *')
+  @Cron('30 5 * * *', { name: 'violation-remediation-sweep' })
+  async scheduledRemediationSweep(): Promise<{ dueSoon: number; overdue: number }> {
+    return this.metrics.track('violation-remediation-sweep', () => this.runRemediationSweep());
+  }
+
   async runRemediationSweep(now = new Date()): Promise<{ dueSoon: number; overdue: number }> {
     const day = 86_400_000;
     const active: Prisma.EnvironmentalViolationWhereInput = {

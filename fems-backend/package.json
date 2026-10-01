@@ -32,6 +32,8 @@
     "postinstall": "node scripts/prisma-generate.mjs || echo 'prisma client generation skipped - run npm run prisma:generate'",
     "smoke:reports": "node scripts/smoke-reports.mjs",
     "smoke:ai": "node scripts/smoke-ai.mjs",
+    "mail:verify": "node scripts/verify-mail.mjs",
+    "ai:verify": "node scripts/verify-ai.mjs",
     "seed:verify": "node scripts/verify-seed.mjs",
     "verify:access": "node scripts/verify-access-scope.mjs",
     "db:mysql": "node scripts/dev-mysql.mjs start",

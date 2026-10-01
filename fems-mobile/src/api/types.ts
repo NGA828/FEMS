@@ -23,15 +23,20 @@ export interface PaginationMeta {
 
 // ------------------------------------------------------------------- identity
 
+/**
+ * The seven roles of the server catalogue (`ROLE_NAMES` in
+ * fems-backend/src/common/constants/permissions.ts). These strings must match
+ * the API exactly: the app keys its navigation off them, and a name the server
+ * never emits silently downgrades an account to the visitor experience.
+ */
 export type RoleName =
-  | 'SUPER_ADMIN'
-  | 'ADMIN'
+  | 'FOREST_EXPLORER'
+  | 'COMPANY_REPRESENTATIVE'
   | 'GOVERNMENT_FOREST_OFFICER'
   | 'ENVIRONMENTAL_OFFICER'
   | 'FOREST_INSPECTOR'
   | 'FIELD_OPERATOR'
-  | 'COMPANY_REPRESENTATIVE'
-  | 'FOREST_EXPLORER';
+  | 'ADMINISTRATOR';
 
 export type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
@@ -764,7 +769,7 @@ export type AiAnalysisType =
   | 'PERMIT_REVIEW_ASSIST'
   | 'EXPLOITATION_PATTERN';
 export type AiAnalysisStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-export type AiProvider = 'OPENROUTER' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
+export type AiProvider = 'GROQ' | 'OPENROUTER' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
 
 export interface AiAlert {
   id: Identifier;
@@ -882,6 +887,7 @@ export interface AiRule {
 
 export interface AiStatus {
   provider: AiProvider;
+  /** True when a model provider (Groq or OpenRouter) holds a key on the server. */
   providerConfigured: boolean;
   model: string;
   deterministicEngine: {
@@ -946,7 +952,7 @@ export interface AssistantAnswer {
   answer: string;
   provider: AiProvider;
   model?: string | null;
-  /** False when OPENROUTER_API_KEY is absent; the rule engine produced the answer. */
+  /** False when no provider key is configured; the rule engine produced the answer. */
   providerConfigured: boolean;
   providerError?: string | null;
   intent?: string | null;
@@ -1340,6 +1346,96 @@ export interface HealthStatus {
 }
 
 export type DashboardStatistics = Record<string, never>;
+
+// ------------------------------------------------------------- integrations
+
+/** How an external dependency reports itself (`GET /system/integrations`). */
+export type IntegrationState = 'READY' | 'DISABLED' | 'MISCONFIGURED' | 'UNREACHABLE';
+
+export interface IntegrationReport {
+  key: 'mail' | 'push' | 'payments' | 'ai' | 'storage' | 'database' | string;
+  label: string;
+  state: IntegrationState;
+  summary: string;
+  /** Environment variables the server still needs. */
+  missing: string[];
+  details: Record<string, unknown>;
+}
+
+export interface IntegrationsPayload {
+  checkedAt: IsoDate;
+  environment: string;
+  integrations: IntegrationReport[];
+}
+
+export interface SystemMetrics {
+  checkedAt: IsoDate;
+  environment: string;
+  process: {
+    startedAt: IsoDate;
+    uptimeSeconds: number;
+    nodeVersion: string;
+    pid: number;
+    memory: { rssMb: number; heapUsedMb: number; heapTotalMb: number };
+  };
+  requests: {
+    total: number;
+    errors: number;
+    clientErrors: number;
+    serverErrors: number;
+    errorRate: number;
+    averageMs: number;
+    inFlight: number;
+    perMinute: { minute: string; requests: number; errors: number; averageMs: number }[];
+    throughputPerMinute: number;
+  };
+  routes: { route: string; count: number; errors: number; averageMs: number; maxMs: number }[];
+  slowest: { route: string; ms: number; status: number; at: IsoDate }[];
+  jobs: {
+    name: string;
+    runs: number;
+    failures: number;
+    lastRun: { status: 'SUCCESS' | 'FAILED'; startedAt: IsoDate; finishedAt: IsoDate; durationMs: number; message: string | null } | null;
+    history: { status: 'SUCCESS' | 'FAILED'; startedAt: IsoDate; finishedAt: IsoDate; durationMs: number; message: string | null }[];
+  }[];
+  database: { reachable: boolean; latencyMs: number; error: string | null };
+  storage: {
+    directory: string;
+    driver: string;
+    files: number;
+    totalMb: number;
+    byKind: { key: string; files: number; bytes: number; mb: number }[];
+    diskFreePercent: number | null;
+    diskFreeMb: number | null;
+    diskTotalMb: number | null;
+  };
+  workload: {
+    windowHours: number;
+    auditedActions: number;
+    logins: number;
+    failedLogins: number;
+    notificationsCreated: number;
+    activeSessions: number;
+  };
+}
+
+export type ComponentHealth = 'OK' | 'DEGRADED' | 'FAILING';
+
+export interface SystemHealthReport {
+  checkedAt: IsoDate;
+  status: ComponentHealth;
+  environment: string;
+  components: { key: string; label: string; status: ComponentHealth; detail: string }[];
+}
+
+export interface MailTestResult {
+  recipient: string;
+  status: 'SENT' | 'NOT_CONFIGURED' | 'FAILED';
+  messageId: string | null;
+  error: string | null;
+  transport: { host: string | null; port: number | null; from: string | null; secure: boolean };
+  message: string;
+}
 
 export type MediaOwnerType = 'FOREST' | 'PROTECTED_AREA' | 'TREE_SPECIES' | 'HERO' | 'BRAND';
 export type MediaRole = 'COVER' | 'GALLERY' | 'HERO' | 'LOGO';

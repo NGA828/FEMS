@@ -29,6 +29,8 @@ import {
   useUploadFile,
   useVerifyPermitDocument,
 } from '../../../src/api/queries';
+import { permitsApi } from '../../../src/api/endpoints';
+import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
@@ -114,6 +116,8 @@ export default function PermitDetailScreen() {
   const language = user?.preferredLanguage === 'fr' ? 'fr' : 'en';
   const canVerifyDocuments = hasPermission('permits:review');
   const canUploadDocuments = hasPermission('permits:manage_documents') || hasPermission('permits:create') || hasPermission('permits:update');
+  const canDownload = hasPermission('permits:download');
+  const [downloading, setDownloading] = useState(false);
 
   const data = permit.data;
   const availableActions = actions.data?.actions ?? [];
@@ -202,6 +206,25 @@ export default function PermitDetailScreen() {
 
   const outstanding = actions.data?.outstandingBalance ?? 0;
 
+  /**
+   * The certificate is rendered by the API from the live record, so a suspended
+   * or expired permit downloads stamped as not valid rather than silently
+   * looking like an authorisation.
+   */
+  const downloadCertificate = async () => {
+    setDownloading(true);
+    try {
+      const result = await downloadAuthenticatedFile(permitsApi.downloadPath(data.id), `${data.permitNumber}.pdf`);
+      if (result.saved) {
+        toast.success('Permit downloaded', result.reason ?? `${data.permitNumber}.pdf`);
+      } else {
+        toast.error('Download failed', result.reason);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -236,6 +259,18 @@ export default function PermitDetailScreen() {
         </View>
         <StatusPill status={data.status} label={permitStatusLabel(data.status, language)} />
       </Row>
+
+      {canDownload ? (
+        <Row gap={8} style={{ marginBottom: 14 }}>
+          <Button
+            label={downloading ? 'Preparing the PDF…' : 'Download the permit'}
+            variant="secondary"
+            icon="document-text-outline"
+            loading={downloading}
+            onPress={() => void downloadCertificate()}
+          />
+        </Row>
+      ) : null}
 
       {data.status === 'PAYMENT_PENDING' && outstanding > 0 ? (
         <View style={{ marginBottom: 14 }}>

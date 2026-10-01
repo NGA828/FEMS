@@ -39,6 +39,11 @@ import type {
   GisPosition,
   GisStatistics,
   HealthStatus,
+  IntegrationReport,
+  IntegrationsPayload,
+  SystemMetrics,
+  SystemHealthReport,
+  MailTestResult,
   Inspection,
   InspectionStatistics,
   NearbyResult,
@@ -185,6 +190,28 @@ export const usersApi = {
     api.post<DirectoryUser>(`/users/${id}/status`, { status, reason }).then((r) => r.data),
   resetPassword: (id: string, newPassword?: string) =>
     api.post<{ temporaryPassword?: string; message: string }>(`/users/${id}/reset-password`, newPassword ? { newPassword } : {}).then((r) => r.data),
+
+  /** Grant a role; `expiresAt` makes the assignment temporary. */
+  grantRole: (id: string, role: string, expiresAt?: string) =>
+    api.post<DirectoryUser>(`/users/${id}/roles`, expiresAt ? { role, expiresAt } : { role }).then((r) => r.data),
+  /** Revoke a role. The API refuses to remove the account's last remaining role. */
+  revokeRole: (id: string, roleName: string) =>
+    api.delete<DirectoryUser>(`/users/${id}/roles/${roleName}`).then((r) => r.data),
+  /** Soft-delete: the account is deactivated and all its sessions are revoked. */
+  deactivate: (id: string) => api.delete<{ message: string }>(`/users/${id}`).then((r) => r.data),
+  restore: (id: string) => api.post<DirectoryUser>(`/users/${id}/restore`).then((r) => r.data),
+
+  statistics: () =>
+    api
+      .get<{
+        total: number;
+        byStatus: { active: number; pendingVerification: number; suspended: number };
+        byRole: { role: string; label: string; count: number }[];
+        withCompany: number;
+        environment: string;
+      }>('/users/statistics')
+      .then((r) => r.data),
+
   roles: () => api.get<CatalogueEntry[]>('/roles/catalogue').then((r) => r.data),
   roleList: () => api.get<RoleSummary[]>('/roles').then((r) => r.data),
 };
@@ -305,6 +332,8 @@ export const permitsApi = {
     api.post<PermitDocument>(`/permits/${id}/documents`, payload).then((r) => r.data),
   verifyDocument: (id: string, documentId: string, payload: { isVerified: boolean; notes?: string }) =>
     api.patch<PermitDocument>(`/permits/${id}/documents/${documentId}/verify`, payload).then((r) => r.data),
+  /** Printable permit certificate (PDF) — fetched with the bearer token, never a plain link. */
+  downloadPath: (id: string) => `/permits/${id}/download`,
 };
 
 // ---------------------------------------------------------------- exploitation
@@ -415,6 +444,8 @@ export const paymentsApi = {
   simulate: (id: string, outcome: 'SUCCESSFUL' | 'FAILED' | 'CANCELLED', notes?: string) =>
     api.post<Payment>(`/payments/${id}/simulate`, { outcome, notes }).then((r) => r.data),
   refund: (id: string, reason: string) => api.post<Payment>(`/payments/${id}/refund`, { reason }).then((r) => r.data),
+  /** The same receipt as a printable PDF. */
+  receiptPdfPath: (id: string) => `/payments/${id}/receipt/pdf`,
 };
 
 // ----------------------------------------------------------------- inspections
@@ -706,6 +737,32 @@ export const filesApi = {
       .then((r) => r.data);
   },
   downloadUrl: (key: string) => api.buildUrl('/files/download', { key }),
+};
+
+// ---------------------------------------------------------------------- system
+
+export const systemApi = {
+  /**
+   * Integration status. `probe` performs the live checks (SMTP handshake);
+   * pass `false` for an instant, configuration-only answer.
+   */
+  integrations: (probe = true) =>
+    api.get<IntegrationsPayload>('/system/integrations', { params: { probe }, timeoutMs: 30_000 }).then((r) => r.data),
+
+  mailStatus: (probe = true) =>
+    api.get<IntegrationReport>('/system/integrations/mail', { params: { probe }, timeoutMs: 30_000 }).then((r) => r.data),
+
+  /** Runtime performance: throughput, error rates, slow routes, jobs, storage. */
+  metrics: () => api.get<SystemMetrics>('/system/metrics', { timeoutMs: 20_000 }).then((r) => r.data),
+
+  /** Component-by-component health verdict for administrators. */
+  health: () => api.get<SystemHealthReport>('/system/health', { timeoutMs: 20_000 }).then((r) => r.data),
+
+  /** Sends a real message through the server's SMTP transport (admin only). */
+  sendTestEmail: (to?: string) =>
+    api
+      .post<MailTestResult>('/system/integrations/mail/test', to ? { to } : {}, { timeoutMs: 45_000, retries: 0 })
+      .then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------- health

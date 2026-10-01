@@ -282,3 +282,198 @@ Make sure the backend is running on port 3000 and that `EXPO_PUBLIC_API_URL` poi
 - The backend expects environment variables from [fems-backend/.env.example](./fems-backend/.env.example).
 - Payment integrations default to a simulator in local development unless you configure Campay credentials.
 - Docker is optional; the documented local database setup uses XAMPP MySQL.
+
+## Email delivery (SMTP)
+
+FEMS sends transactional email for account verification codes, password-reset
+codes and any notification whose **Email** channel is enabled on the account.
+Nothing is faked: when SMTP is not configured the API reports
+`NOT_CONFIGURED`/`FAILED` instead of claiming a message was delivered, and
+(outside production) returns the verification code in the response so the flow
+stays testable.
+
+### 1) Create a Gmail App password
+
+1. Use a dedicated sending account, e.g. `fems.notifications@gmail.com`.
+2. Enable 2-Step Verification:
+   <https://myaccount.google.com/signinoptions/two-step-verification>
+3. Create an **App password** (type *Mail*):
+   <https://myaccount.google.com/apppasswords> — Google returns 16 characters.
+   A normal account password is rejected with
+   `535-5.7.8 Username and Password not accepted`.
+
+### 2) Configure the backend
+
+Add to `fems-backend/.env` (never commit it):
+
+```env
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=fems.notifications@gmail.com
+SMTP_PASSWORD=abcdefghijklmnop
+SMTP_FROM="FEMS <fems.notifications@gmail.com>"
+```
+
+`SMTP_FROM` must be the sending mailbox (or one of its aliases), otherwise Gmail
+rewrites or rejects the sender. Port `587` uses STARTTLS; port `465` uses
+implicit TLS and is also supported.
+
+### 3) Verify it works
+
+Without starting the API:
+
+```bash
+npm run mail:verify                      # configuration + SMTP handshake
+npm run mail:verify -- you@example.com   # also sends a real test message
+```
+
+The script explains the exact failure (bad credentials, blocked port, TLS) and
+exits non-zero when email would not be delivered.
+
+With the API running, it logs the transport state at boot:
+
+```text
+[Bootstrap] Email delivery ready: smtp.gmail.com:587 as FEMS <fems.notifications@gmail.com>
+```
+
+and administrators can check or test it from the app or over HTTP:
+
+| Route | Permission | Purpose |
+|---|---|---|
+| `GET /api/v1/system/integrations` | `settings:read` | Email, push, payments, AI, storage and database status in one call |
+| `GET /api/v1/system/integrations/mail` | `settings:read` | SMTP configuration (never the password) + live handshake |
+| `POST /api/v1/system/integrations/mail/test` | `settings:manage` | Sends a real test email; the SMTP response is returned verbatim and written to the audit trail |
+
+In the mobile app: **Settings → Email delivery** shows the same status and has a
+*Send test email* button for administrators.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `missing: EMAIL_PROVIDER` | `EMAIL_PROVIDER=none`. Set it to `smtp` (or just fill `SMTP_HOST` — that now implies `smtp`). |
+| `535 Username and Password not accepted` | A normal Google password was used, or 2-Step Verification is off. Create an App password. |
+| `ETIMEDOUT` / `ECONNREFUSED` | Outbound port 587/465 is blocked on the network, or the host is wrong. |
+| Mail works locally, not after deploy | The `.env` of the deployed API has no SMTP values — they are not baked into the build. |
+| Message sent but not received | Check the spam folder on the first send, and that `SMTP_FROM` matches `SMTP_USER`. |
+
+## Printable documents (PDF)
+
+FEMS renders two official documents server-side, from the live record, so a
+printed copy can never disagree with the register:
+
+| Route | Permission | Document |
+|---|---|---|
+| `GET /api/v1/permits/:id/download` | `permits:download` | **Permit certificate** — holder, forest and zone, authorised volume, validity dates, fees assessed/settled/outstanding, conditions, decision history and a verification code |
+| `GET /api/v1/payments/:id/receipt/pdf` | `payments:download_receipt` | **Payment receipt** — amount, method, provider reference, payer, the permit it settles, and a verification code |
+
+Both are plain `application/pdf` responses behind the bearer token (a plain link
+would be rejected), and both are written to the audit trail as an `EXPORT`.
+
+Honesty rules baked into the renderer:
+
+- a permit that is not in force (draft, submitted, suspended, revoked, expired,
+  rejected) is **stamped "not valid"** and carries an explanatory banner rather
+  than being refused — the record can still be filed;
+- seeded demonstration data is stamped `DEMONSTRATION DATA`;
+- a sandbox payment (`PAYMENT_PROVIDER=simulator`) is stamped **"no funds
+  moved"**, so a simulated settlement can never pass for proof of payment.
+
+In the mobile app: **Download the permit** on the permit screen, **Download the
+receipt** on a settled payment. The file is fetched with the session token and
+handed to the platform share sheet.
+
+## System monitoring
+
+Administrators can see what the deployment is actually doing:
+
+| Route | Permission | Purpose |
+|---|---|---|
+| `GET /api/v1/system/metrics` | `system:monitor` | Request throughput and error rate per minute, busiest and slowest routes, every scheduled job with its last outcome and duration, database latency, storage consumption and free disk, and the 24-hour workload (audited actions, sign-ins, refused sign-ins, notifications, active sessions) |
+| `GET /api/v1/system/health` | `system:health` | One OK / DEGRADED / FAILING verdict per component (email, push, payments, AI, storage, database, scheduled jobs, API responses, disk) |
+
+Request counters are collected in-process by an interceptor and reset when the
+API restarts — the payload states `process.startedAt` so the window is explicit.
+Scheduled jobs (`permit-lifecycle`, `ai-risk-sweep`,
+`violation-remediation-sweep`) report success, duration and failure reason.
+
+In the mobile app: **Settings → System monitoring**, also reachable from the
+dashboard's Administration block and the module catalogue.
+
+## AI provider (Groq — free tier)
+
+FEMS uses **GroqCloud** by default. The deterministic rule engine always
+computes the findings; the model only writes the narrative around them, so the
+system works with or without a key — it just says which one it is doing.
+
+### 1) Create a free Groq API key
+
+1. Sign up at **https://console.groq.com** (email or Google/GitHub, no credit card).
+2. Open **API Keys → Create API key**, copy it — it starts with `gsk_` and is
+   shown only once.
+
+### 2) Put the key in the backend `.env`
+
+`fems-backend/.env` (never commit it):
+
+```env
+AI_PROVIDER=groq
+GROQ_API_KEY=gsk_your_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+AI_REQUEST_TIMEOUT_MS=30000
+AI_MAX_OUTPUT_TOKENS=2048
+```
+
+Free models to choose from (all free, the trade-off is the daily budget):
+
+| `GROQ_MODEL` | Why pick it | Free-tier budget |
+|---|---|---|
+| `llama-3.3-70b-versatile` **(default)** | best quality for analyses and the assistant | 30 req/min · 1 000 req/day · 100K tokens/day |
+| `llama-3.1-8b-instant` | highest volume, fastest | 30 req/min · 14 400 req/day · 500K tokens/day |
+| `openai/gpt-oss-120b` | strong, supports prompt caching | 30 req/min · 1 000 req/day · 200K tokens/day |
+| `openai/gpt-oss-20b` | lighter alternative | 30 req/min · 1 000 req/day · 200K tokens/day |
+
+Quotas are Groq's published free-tier limits and can change; `npm run ai:verify`
+always lists what your own key can actually use.
+
+### 3) Verify it works
+
+```bash
+cd fems-backend
+npm run ai:verify           # key + the models your account can use + one real call
+npm run ai:verify -- --list # no generation request, just the model list
+```
+
+A successful run prints the models, the latency and the model's reply. Failures
+are explicit rather than generic: a refused key (401) points at `GROQ_API_KEY`,
+an unknown model (404) points at `GROQ_MODEL` and lists the valid ids, and a
+spent quota (429) says so and reminds you the rule engine still answers.
+
+Then restart the API — configuration is read at boot. Administrators can check
+the state in the app at **Settings → Artificial intelligence**, or over HTTP at
+`GET /api/v1/ai/status` and `GET /api/v1/system/integrations`.
+
+### Switching provider, or turning the model off
+
+| `.env` | Effect |
+|---|---|
+| `AI_PROVIDER=groq` + `GROQ_API_KEY` | Groq answers (default) |
+| `AI_PROVIDER=openrouter` + `OPENROUTER_API_KEY` | OpenRouter answers |
+| `AI_PROVIDER=none` | No model is ever called; the deterministic rule engine answers everything |
+| `AI_PROVIDER` empty | Inferred from whichever key is set, preferring Groq |
+
+Whichever is in force is recorded on every analysis and assistant message
+(`provider` = `GROQ`, `OPENROUTER` or `LOCAL_RULE_ENGINE`), so an answer can always
+be traced back to what produced it.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `GROQ_API_KEY is empty` | The key is missing from `fems-backend/.env`, or the API was not restarted after adding it. |
+| `HTTP 401 Invalid API Key` | The key was revoked or mistyped (it must start with `gsk_`). Create a new one in the Groq console. |
+| `HTTP 404 model not found` | `GROQ_MODEL` is not served to your account — run `npm run ai:verify -- --list` and copy an id from the list. |
+| `HTTP 429 rate limit` | Free tier exhausted (30 req/min, or the daily token budget — it resets at 00:00 UTC). Switch to `llama-3.1-8b-instant` for volume. FEMS keeps answering with the rule engine meanwhile. |
+| Answers say "rule engine only" | No provider key is configured, or `AI_PROVIDER=none`. |

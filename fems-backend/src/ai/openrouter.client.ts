@@ -1,46 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { appConfig } from '../config/configuration';
+import { AiNotConfiguredError, AiProviderError, type LlmDescription, type LlmRequest, type LlmResponse } from './llm.types';
 
-export interface OpenRouterRequest {
-  /** The user turn: the question plus the data the caller is allowed to see. */
-  prompt: string;
-  /** Recent authorised conversation turns, oldest first. */
-  history?: Array<{ role: 'user' | 'model'; text: string }>;
-  /** Standing instructions (never contains data — it is a fixed policy text). */
-  systemInstruction?: string;
-  temperature?: number;
-  maxOutputTokens?: number;
-  /** Ask the model for JSON-object output. */
-  json?: boolean;
-}
-
-export interface OpenRouterResponse {
-  text: string;
-  model: string;
-  latencyMs: number;
-  tokensUsed: number | null;
-  finishReason: string | null;
-}
-
-export class AiNotConfiguredError extends Error {
-  readonly code = 'AI_NOT_CONFIGURED';
-
-  constructor(message = 'OpenRouter is not configured. Set OPENROUTER_API_KEY to enable it.') {
-    super(message);
-    this.name = 'AiNotConfiguredError';
-  }
-}
-
-export class AiProviderError extends Error {
-  readonly code = 'AI_PROVIDER_UNAVAILABLE';
-  readonly status: number | null;
-
-  constructor(message: string, status: number | null = null) {
-    super(message);
-    this.name = 'AiProviderError';
-    this.status = status;
-  }
-}
+/** Kept as aliases so existing imports of the OpenRouter types keep working. */
+export type OpenRouterRequest = LlmRequest;
+export type OpenRouterResponse = LlmResponse;
+export { AiNotConfiguredError, AiProviderError } from './llm.types';
 
 interface OpenRouterPayload {
   choices?: Array<{
@@ -64,10 +29,11 @@ export class OpenRouterClient {
     return Boolean(appConfig().ai.openRouterApiKey);
   }
 
-  describe() {
+  describe(): LlmDescription {
     const ai = appConfig().ai;
     return {
       provider: (ai.openRouterApiKey ? 'OPENROUTER' : 'LOCAL_RULE_ENGINE') as 'OPENROUTER' | 'LOCAL_RULE_ENGINE',
+      missing: ai.openRouterApiKey ? [] : ['OPENROUTER_API_KEY'],
       configured: Boolean(ai.openRouterApiKey),
       model: ai.openRouterApiKey ? ai.openRouterModel : 'deterministic-rule-engine',
       baseUrl: ai.openRouterBaseUrl,
@@ -79,9 +45,9 @@ export class OpenRouterClient {
     };
   }
 
-  async generate(request: OpenRouterRequest): Promise<OpenRouterResponse> {
+  async generate(request: LlmRequest): Promise<LlmResponse> {
     const ai = appConfig().ai;
-    if (!ai.openRouterApiKey) throw new AiNotConfiguredError();
+    if (!ai.openRouterApiKey) throw new AiNotConfiguredError('OpenRouter is not configured. Set OPENROUTER_API_KEY to enable it.');
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ai.requestTimeoutMs);

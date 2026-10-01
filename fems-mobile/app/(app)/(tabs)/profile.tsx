@@ -23,7 +23,7 @@ import { authApi } from '../../../src/api/endpoints';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { apiConfig } from '../../../src/api/config';
 import { useTheme, useThemeController } from '../../../src/theme/theme';
-import { roleContext, tabsFor } from '../../../src/navigation/tabs';
+import { primaryRoleSummary, roleContext, tabsFor } from '../../../src/navigation/tabs';
 import {
   Avatar,
   Badge,
@@ -156,7 +156,7 @@ export default function ProfileScreen() {
             <Title lines={1}>{user ? fullName(user) : ''}</Title>
             <Caption tone="muted">{user?.jobTitle ?? user?.email}</Caption>
             <Row gap={6} style={{ marginTop: 8 }} wrap>
-              <Badge label={user?.roles?.[0]?.label ?? '—'} tone="primary" />
+              <Badge label={primaryRoleSummary(user)?.label ?? '—'} tone="primary" />
               {user?.company ? <Badge label={user.company.name} tone="accent" /> : null}
               {user?.status ? <Badge label={userStatusLabel(user.status, language)} tone={user.status === 'ACTIVE' ? 'success' : 'warning'} /> : null}
               {user?.isDemo ? <Badge label="Demo account" tone="info" /> : null}

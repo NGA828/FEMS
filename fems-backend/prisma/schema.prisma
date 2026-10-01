@@ -408,6 +408,7 @@ enum RiskLevel {
 }
 
 enum AiProvider {
+  GROQ
   OPENROUTER
   // Retained so existing Gemini-generated records remain readable.
   GEMINI
