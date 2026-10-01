@@ -44,7 +44,8 @@ import {
   toAlertRecord,
   type Finding,
 } from './anomaly-analyzer';
-import { GeminiClient, AiNotConfiguredError, AiProviderError } from './gemini.client';
+import { LlmClient } from './llm.client';
+import { AiNotConfiguredError, AiProviderError } from './llm.types';
 import {
   ALERT_ACTION_PERMISSIONS,
   ALERT_ACTIONS,
@@ -110,7 +111,8 @@ const ALERT_REVIEWER_ROLES = [
  *   - Forest Intelligence: a deterministic rule engine over the live database
  *     raises labelled *signals* (never accusations) that an officer must review.
  *   - Forest Assistant: answers questions from the records the caller is
- *     authorised to read; Google Gemini is used only when a key is configured,
+ *     authorised to read; the model provider (Groq by default, Gemini optional)
+ *     is used only when a key is configured,
  *     and only as a narrator of data FEMS has already authorised.
  */
 @Injectable()
@@ -122,7 +124,7 @@ export class AiService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly gis: GisService,
-    private readonly gemini: GeminiClient,
+    private readonly llm: LlmClient,
     private readonly metrics: MetricsService,
   ) {
     this.metrics.declareJob('ai-risk-sweep');
@@ -130,7 +132,7 @@ export class AiService {
 
   // ------------------------------------------------------------------- status
 
-  /** What the module can do right now — including whether Gemini is configured. */
+  /** What the module can do right now — including which provider is configured. */
   async status(user: AuthenticatedUser) {
     const [totalAlerts, pendingAlerts, lastAnalysis, conversations] = await Promise.all([
       this.prisma.aIAlert.count({ where: { ...this.alertScope(user) } }),
@@ -143,9 +145,11 @@ export class AiService {
       this.prisma.aIConversation.count({ where: { userId: user.id, archivedAt: null } }),
     ]);
 
-    const provider = this.gemini.describe();
+    const provider = this.llm.describe();
     return {
       provider: provider.provider,
+      providerConfigured: provider.configured,
+      /** @deprecated kept for older app builds — use `providerConfigured`. */
       geminiConfigured: provider.configured,
       model: provider.model,
       deterministicEngine: {
@@ -153,7 +157,7 @@ export class AiService {
         rules: ANALYSIS_RULES.map((rule) => ({ code: rule.code, label: rule.label, alertType: rule.alertType })),
         thresholds: ANALYSIS_THRESHOLDS,
         description:
-          'A rule engine that computes from records already stored in FEMS. It runs with or without Gemini and always produces the alerts; Gemini only writes narrative summaries.',
+          'A rule engine that computes from records already stored in FEMS. It runs with or without a model provider and always produces the alerts; the model only writes narrative summaries.',
       },
       capabilities: {
         canRunAnalysis: hasPermission(user, 'ai:analysis_run'),
@@ -177,10 +181,22 @@ export class AiService {
     };
   }
 
+  /** The `AiProvider` value to stamp on a row the model actually answered. */
+  private get providerEnum(): AiProvider {
+    switch (this.llm.provider) {
+      case 'groq':
+        return AiProvider.GROQ;
+      case 'gemini':
+        return AiProvider.GEMINI;
+      default:
+        return AiProvider.LOCAL_RULE_ENGINE;
+    }
+  }
+
   /** Rule catalogue, thresholds and the assistant's data sections. */
   catalogue() {
     return {
-      provider: this.gemini.describe(),
+      provider: this.llm.describe(),
       detectorVersion: DETECTOR_VERSION,
       rules: ANALYSIS_RULES.map((rule) => ({
         code: rule.code,
@@ -210,7 +226,7 @@ export class AiService {
 
   /**
    * Runs the deterministic engine over the caller's scope, stores the analysis
-   * and raises one NEW alert per new signal. Gemini, when configured, is asked
+   * and raises one NEW alert per new signal. The model, when configured, is asked
    * for a narrative summary *after* the facts are computed — it cannot change a
    * risk level, a status or a finding.
    */
@@ -243,16 +259,16 @@ export class AiService {
         if (alert) created.push({ id: alert.id, reference: alert.reference, type: alert.type, riskLevel: alert.riskLevel });
       }
 
-      // Optional narrative from Gemini. It only ever describes what the rules found.
+      // Optional narrative from the model. It only ever describes what the rules found.
       let narrative = describeOutcome(outcome);
       let provider: AiProvider = AiProvider.LOCAL_RULE_ENGINE;
       let model: string | null = null;
       let tokensUsed: number | null = null;
       let providerError: string | null = null;
 
-      if (dto.useProvider !== false && this.gemini.isConfigured) {
+      if (dto.useProvider !== false && this.llm.isConfigured) {
         try {
-          const response = await this.gemini.generate({
+          const response = await this.llm.generate({
             systemInstruction: ASSISTANT_SYSTEM_INSTRUCTION,
             prompt: [
               'Summarise this FEMS forest-intelligence run for a forestry officer.',
@@ -274,12 +290,12 @@ export class AiService {
             ].join('\n'),
           });
           narrative = response.text;
-          provider = AiProvider.GEMINI;
+          provider = this.providerEnum;
           model = response.model;
           tokensUsed = response.tokensUsed;
         } catch (error) {
-          providerError = error instanceof Error ? error.message : 'Gemini call failed';
-          this.logger.warn(`Analysis ${analysis.id}: Gemini narrative unavailable — ${providerError}`);
+          providerError = error instanceof Error ? error.message : 'The AI provider call failed';
+          this.logger.warn(`Analysis ${analysis.id}: provider narrative unavailable — ${providerError}`);
         }
       }
 
@@ -312,7 +328,7 @@ export class AiService {
           provider,
           model,
           resultJson: stringifyJson(result),
-          responseJson: provider === AiProvider.GEMINI ? stringifyJson({ narrative }) : null,
+          responseJson: provider !== AiProvider.LOCAL_RULE_ENGINE ? stringifyJson({ narrative }) : null,
           summary: narrative,
           riskLevel: outcome.findings.length ? outcomeRisk(outcome) : RiskLevel.LOW,
           confidence: outcome.findings.length ? outcomeConfidence(outcome) : 0,
@@ -357,13 +373,13 @@ export class AiService {
         result,
         alerts: created.length,
         duplicatesSkipped: outcome.duplicates,
-        providerConfigured: this.gemini.isConfigured,
+        providerConfigured: this.llm.isConfigured,
         providerError,
         notes: [
           'Signals are raised with status NEW and must be reviewed by an officer.',
           'The deterministic rule engine produced every risk level and every figure above; no model decided them.',
-          ...(providerError ? [`The Gemini narrative was unavailable: ${providerError}`] : []),
-          ...(dto.useProvider !== false && !this.gemini.isConfigured
+          ...(providerError ? [`The model narrative was unavailable: ${providerError}`] : []),
+          ...(dto.useProvider !== false && !this.llm.isConfigured
             ? ['GEMINI_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
             : []),
         ],
@@ -687,7 +703,7 @@ export class AiService {
       ...summary,
       reviewSlaHours: slaHours,
       detectorVersion: DETECTOR_VERSION,
-      provider: this.gemini.describe().provider,
+      provider: this.llm.describe().provider,
       humanReview: {
         reviewed: reviewed.length,
         awaitingFirstReview: summary.awaitingReview,
@@ -767,7 +783,7 @@ export class AiService {
       },
     });
 
-    // 2 — answer: Gemini when configured, otherwise the deterministic reader.
+    // 2 — answer: the model when configured, otherwise the deterministic reader.
     const startedAt = Date.now();
     let answerText: string;
     let provider: AiProvider = AiProvider.LOCAL_RULE_ENGINE;
@@ -776,9 +792,9 @@ export class AiService {
     let providerError: string | null = null;
     const ruleAnswer = answerFromContext(question, context);
 
-    if (this.gemini.isConfigured) {
+    if (this.llm.isConfigured) {
       try {
-        const response = await this.gemini.generate({
+        const response = await this.llm.generate({
           systemInstruction: ASSISTANT_SYSTEM_INSTRUCTION,
           prompt: [
             `Question from ${user.firstName} ${user.lastName} (roles: ${user.roles.join(', ')}).`,
@@ -789,7 +805,7 @@ export class AiService {
           ].join('\n'),
         });
         answerText = response.text;
-        provider = AiProvider.GEMINI;
+        provider = this.providerEnum;
         model = response.model;
         tokensUsed = response.tokensUsed;
       } catch (error) {
@@ -800,7 +816,7 @@ export class AiService {
               ? error.message
               : error instanceof Error
                 ? error.message
-                : 'Gemini call failed';
+                : 'The AI provider call failed';
         this.logger.warn(`Assistant provider error: ${providerError}`);
         if (dto.fallbackToRules === false) {
           await this.prisma.aIMessage.create({
@@ -808,15 +824,15 @@ export class AiService {
               conversationId: activeConversation.id,
               role: 'ERROR',
               content: 'The AI provider could not answer this question.',
-              provider: AiProvider.GEMINI,
-              model: this.gemini.model,
+              provider: this.providerEnum,
+              model: this.llm.model,
               latencyMs: Date.now() - startedAt,
               errorMessage: providerError.slice(0, 500),
             },
           });
           throw new ServiceUnavailableException({
             code: 'AI_PROVIDER_UNAVAILABLE',
-            message: `The Gemini provider did not answer: ${providerError}`,
+            message: `The ${this.llm.describe().provider} provider did not answer: ${providerError}`,
           });
         }
         answerText = `${ruleAnswer.text}\n\n(Note: the AI provider call failed — ${providerError} — so this answer was computed by the FEMS rule engine from the same authorised data.)`;
@@ -875,7 +891,8 @@ export class AiService {
       answer: assistantMessage.content,
       provider,
       model: model ?? 'deterministic-rule-engine',
-      geminiConfigured: this.gemini.isConfigured,
+      providerConfigured: this.llm.isConfigured,
+      geminiConfigured: this.llm.isConfigured,
       providerError,
       intent: ruleAnswer.intent,
       latencyMs,

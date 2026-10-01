@@ -36,6 +36,19 @@ const bool = (value: string | undefined, fallback: boolean): boolean => {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 };
 
+/**
+ * Which AI provider answers. `AI_PROVIDER` wins when it names one; otherwise the
+ * provider is inferred from the key that is actually present, preferring Groq
+ * (free tier) over Gemini. No key at all means the deterministic rule engine.
+ */
+const aiProvider = (): 'groq' | 'gemini' | 'none' => {
+  const explicit = (process.env.AI_PROVIDER ?? '').trim().toLowerCase();
+  if (explicit === 'groq' || explicit === 'gemini' || explicit === 'none') return explicit;
+  if (process.env.GROQ_API_KEY) return 'groq';
+  if (process.env.GEMINI_API_KEY) return 'gemini';
+  return 'groq';
+};
+
 const list = (value: string | undefined): string[] =>
   (value || '')
     .split(',')
@@ -92,6 +105,11 @@ export interface AppConfig {
     };
   };
   ai: {
+    /** Which provider answers: Groq (default, free tier), Gemini, or none. */
+    provider: 'groq' | 'gemini' | 'none';
+    groqApiKey: string;
+    groqModel: string;
+    groqBaseUrl: string;
     geminiApiKey: string;
     geminiModel: string;
     geminiBaseUrl: string;
@@ -117,6 +135,15 @@ export interface AppConfig {
 }
 
 let cached: AppConfig | null = null;
+
+/**
+ * Drops the memoised configuration so a later `appConfig()` re-reads
+ * `process.env`. Used by the tests that exercise provider selection; the
+ * running API never calls it (configuration is read once at boot).
+ */
+export function resetConfigCache(): void {
+  cached = null;
+}
 
 export function appConfig(): AppConfig {
   if (cached) return cached;
@@ -172,6 +199,13 @@ export function appConfig(): AppConfig {
       },
     },
     ai: {
+      provider: aiProvider(),
+      groqApiKey: process.env.GROQ_API_KEY ?? '',
+      // Free on GroqCloud: 30 requests/minute, 1 000 requests and 100 000
+      // tokens per day. `llama-3.1-8b-instant` is the higher-volume free
+      // alternative, `openai/gpt-oss-120b` the stronger one.
+      groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+      groqBaseUrl: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
       geminiApiKey: process.env.GEMINI_API_KEY ?? '',
       geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
       geminiBaseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
@@ -208,6 +242,20 @@ export function appConfig(): AppConfig {
   return cached;
 }
 
+/** The AI provider in force, as reported to clients (never the key itself). */
+export function aiIntegrationStatus() {
+  const { ai } = appConfig();
+  const key = ai.provider === 'groq' ? ai.groqApiKey : ai.provider === 'gemini' ? ai.geminiApiKey : '';
+  const configured = Boolean(key);
+  return {
+    selected: ai.provider,
+    provider: (configured ? (ai.provider === 'groq' ? 'GROQ' : 'GEMINI') : 'LOCAL_RULE_ENGINE') as 'GROQ' | 'GEMINI' | 'LOCAL_RULE_ENGINE',
+    configured,
+    model: configured ? (ai.provider === 'groq' ? ai.groqModel : ai.geminiModel) : 'deterministic-rule-engine',
+    missing: configured ? [] : ai.provider === 'gemini' ? ['GEMINI_API_KEY'] : ai.provider === 'none' ? [] : ['GROQ_API_KEY'],
+  };
+}
+
 /** Integration status surfaced to clients (never leaks secret values). */
 export function integrationStatus() {
   const config = appConfig();
@@ -218,11 +266,7 @@ export function integrationStatus() {
         config.payments.campay.apiKey && config.payments.campay.username && config.payments.campay.password,
       ),
     },
-    ai: {
-      provider: config.ai.geminiApiKey ? 'GEMINI' : 'LOCAL_RULE_ENGINE',
-      geminiConfigured: Boolean(config.ai.geminiApiKey),
-      model: config.ai.geminiApiKey ? config.ai.geminiModel : 'deterministic-rule-engine',
-    },
+    ai: aiIntegrationStatus(),
     notifications: {
       pushProvider: config.notifications.pushProvider,
       emailProvider: config.notifications.emailProvider,

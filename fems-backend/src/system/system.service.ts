@@ -1,7 +1,7 @@
 import { statfs } from 'node:fs/promises';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AuditAction, AuditSeverity } from '@prisma/client';
-import { appConfig } from '../config/configuration';
+import { aiIntegrationStatus, appConfig } from '../config/configuration';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -381,16 +381,29 @@ export class SystemService {
   }
 
   private aiIntegration(): IntegrationReport {
-    const { geminiApiKey, geminiModel } = appConfig().ai;
+    const status = aiIntegrationStatus();
+    const ai = appConfig().ai;
+    const disabled = status.selected === 'none';
     return {
       key: 'ai',
-      label: 'AI provider (Gemini)',
-      state: geminiApiKey ? 'READY' : 'DISABLED',
-      summary: geminiApiKey
-        ? `Gemini ${geminiModel} answers assistant questions and narrative analyses. Deterministic rules run regardless.`
-        : 'No Gemini key: the AI module runs on its deterministic rule engine only.',
-      missing: geminiApiKey ? [] : ['GEMINI_API_KEY'],
-      details: { model: geminiModel, ruleEngine: true },
+      label: `AI provider (${status.selected === 'gemini' ? 'Google Gemini' : status.selected === 'none' ? 'disabled' : 'Groq'})`,
+      state: status.configured ? 'READY' : disabled ? 'DISABLED' : 'MISCONFIGURED',
+      summary: status.configured
+        ? `${status.provider} ${status.model} writes assistant answers and narrative analyses. The deterministic rule engine runs regardless.`
+        : disabled
+          ? 'AI_PROVIDER=none: the AI module runs on its deterministic rule engine only.'
+          : `${status.missing.join(', ')} is empty, so the AI module runs on its deterministic rule engine only.`,
+      missing: status.missing,
+      details: {
+        selected: status.selected,
+        model: status.model,
+        baseUrl: status.selected === 'gemini' ? ai.geminiBaseUrl : ai.groqBaseUrl,
+        ruleEngine: true,
+        freeTierNote:
+          status.selected === 'groq'
+            ? 'GroqCloud free tier: 30 requests/minute with a per-model daily token budget. A 429 means the quota is spent, not that FEMS is broken.'
+            : undefined,
+      },
     };
   }
 

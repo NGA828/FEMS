@@ -408,6 +408,7 @@ enum RiskLevel {
 }
 
 enum AiProvider {
+  GROQ
   GEMINI
   LOCAL_RULE_ENGINE
 }

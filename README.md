@@ -381,3 +381,80 @@ Scheduled jobs (`permit-lifecycle`, `ai-risk-sweep`,
 
 In the mobile app: **Settings → System monitoring**, also reachable from the
 dashboard's Administration block and the module catalogue.
+
+## AI provider (Groq — free tier)
+
+FEMS uses **GroqCloud** by default. The deterministic rule engine always
+computes the findings; the model only writes the narrative around them, so the
+system works with or without a key — it just says which one it is doing.
+
+### 1) Create a free Groq API key
+
+1. Sign up at **https://console.groq.com** (email or Google/GitHub, no credit card).
+2. Open **API Keys → Create API key**, copy it — it starts with `gsk_` and is
+   shown only once.
+
+### 2) Put the key in the backend `.env`
+
+`fems-backend/.env` (never commit it):
+
+```env
+AI_PROVIDER=groq
+GROQ_API_KEY=gsk_your_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+AI_REQUEST_TIMEOUT_MS=30000
+AI_MAX_OUTPUT_TOKENS=2048
+```
+
+Free models to choose from (all free, the trade-off is the daily budget):
+
+| `GROQ_MODEL` | Why pick it | Free-tier budget |
+|---|---|---|
+| `llama-3.3-70b-versatile` **(default)** | best quality for analyses and the assistant | 30 req/min · 1 000 req/day · 100K tokens/day |
+| `llama-3.1-8b-instant` | highest volume, fastest | 30 req/min · 14 400 req/day · 500K tokens/day |
+| `openai/gpt-oss-120b` | strong, supports prompt caching | 30 req/min · 1 000 req/day · 200K tokens/day |
+| `openai/gpt-oss-20b` | lighter alternative | 30 req/min · 1 000 req/day · 200K tokens/day |
+
+Quotas are Groq's published free-tier limits and can change; `npm run ai:verify`
+always lists what your own key can actually use.
+
+### 3) Verify it works
+
+```bash
+cd fems-backend
+npm run ai:verify           # key + the models your account can use + one real call
+npm run ai:verify -- --list # no generation request, just the model list
+```
+
+A successful run prints the models, the latency and the model's reply. Failures
+are explicit rather than generic: a refused key (401) points at `GROQ_API_KEY`,
+an unknown model (404) points at `GROQ_MODEL` and lists the valid ids, and a
+spent quota (429) says so and reminds you the rule engine still answers.
+
+Then restart the API — configuration is read at boot. Administrators can check
+the state in the app at **Settings → Artificial intelligence**, or over HTTP at
+`GET /api/v1/ai/status` and `GET /api/v1/system/integrations`.
+
+### Switching provider, or turning the model off
+
+| `.env` | Effect |
+|---|---|
+| `AI_PROVIDER=groq` + `GROQ_API_KEY` | Groq answers (default) |
+| `AI_PROVIDER=gemini` + `GEMINI_API_KEY` | Google Gemini answers |
+| `AI_PROVIDER=none` | No model is ever called; the deterministic rule engine answers everything |
+| `AI_PROVIDER` empty | Inferred from whichever key is set, preferring Groq |
+
+Whichever is in force is recorded on every analysis and assistant message
+(`provider` = `GROQ`, `GEMINI` or `LOCAL_RULE_ENGINE`), so an answer can always
+be traced back to what produced it.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `GROQ_API_KEY is empty` | The key is missing from `fems-backend/.env`, or the API was not restarted after adding it. |
+| `HTTP 401 Invalid API Key` | The key was revoked or mistyped (it must start with `gsk_`). Create a new one in the Groq console. |
+| `HTTP 404 model not found` | `GROQ_MODEL` is not served to your account — run `npm run ai:verify -- --list` and copy an id from the list. |
+| `HTTP 429 rate limit` | Free tier exhausted (30 req/min, or the daily token budget — it resets at 00:00 UTC). Switch to `llama-3.1-8b-instant` for volume. FEMS keeps answering with the rule engine meanwhile. |
+| Answers say "rule engine only" | No provider key is configured, or `AI_PROVIDER=none`. |

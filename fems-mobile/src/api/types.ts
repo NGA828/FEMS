@@ -770,7 +770,7 @@ export type AiAnalysisType =
   | 'PERMIT_REVIEW_ASSIST'
   | 'EXPLOITATION_PATTERN';
 export type AiAnalysisStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-export type AiProvider = 'GEMINI' | 'LOCAL_RULE_ENGINE';
+export type AiProvider = 'GROQ' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
 
 export interface AiAlert {
   id: Identifier;
@@ -888,6 +888,9 @@ export interface AiRule {
 
 export interface AiStatus {
   provider: AiProvider;
+  /** True when a model provider (Groq or Gemini) holds a key on the server. */
+  providerConfigured: boolean;
+  /** @deprecated same value as `providerConfigured`; kept for older builds. */
   geminiConfigured: boolean;
   model: string;
   deterministicEngine: {
@@ -952,7 +955,9 @@ export interface AssistantAnswer {
   answer: string;
   provider: AiProvider;
   model?: string | null;
-  /** False when GEMINI_API_KEY is absent; the rule engine produced the answer. */
+  /** False when no provider key is configured; the rule engine produced the answer. */
+  providerConfigured: boolean;
+  /** @deprecated same value as `providerConfigured`. */
   geminiConfigured: boolean;
   providerError?: string | null;
   intent?: string | null;

@@ -1,46 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { appConfig } from '../config/configuration';
+import { AiNotConfiguredError, AiProviderError, type LlmDescription, type LlmRequest, type LlmResponse } from './llm.types';
 
-export interface GeminiRequest {
-  /** The user turn: the question plus the data the caller is allowed to see. */
-  prompt: string;
-  /** Standing instructions (never contains data — it is a fixed policy text). */
-  systemInstruction?: string;
-  temperature?: number;
-  maxOutputTokens?: number;
-  /** Ask the model for `application/json` output. */
-  json?: boolean;
-}
-
-export interface GeminiResponse {
-  text: string;
-  model: string;
-  latencyMs: number;
-  tokensUsed: number | null;
-  finishReason: string | null;
-}
-
-/** Raised when no API key is configured — the caller must surface this, not hide it. */
-export class AiNotConfiguredError extends Error {
-  readonly code = 'AI_NOT_CONFIGURED';
-
-  constructor(message = 'The Gemini provider is not configured. Set GEMINI_API_KEY to enable it.') {
-    super(message);
-    this.name = 'AiNotConfiguredError';
-  }
-}
-
-/** Raised when a configured provider refuses or fails the call. */
-export class AiProviderError extends Error {
-  readonly code = 'AI_PROVIDER_UNAVAILABLE';
-  readonly status: number | null;
-
-  constructor(message: string, status: number | null = null) {
-    super(message);
-    this.name = 'AiProviderError';
-    this.status = status;
-  }
-}
+/** Kept as aliases so existing imports of the Gemini types keep working. */
+export type GeminiRequest = LlmRequest;
+export type GeminiResponse = LlmResponse;
+export { AiNotConfiguredError, AiProviderError } from './llm.types';
 
 /**
  * Google Gemini client.
@@ -62,10 +27,11 @@ export class GeminiClient {
     return Boolean(appConfig().ai.geminiApiKey);
   }
 
-  describe() {
+  describe(): LlmDescription {
     const ai = appConfig().ai;
     return {
       provider: (ai.geminiApiKey ? 'GEMINI' : 'LOCAL_RULE_ENGINE') as 'GEMINI' | 'LOCAL_RULE_ENGINE',
+      missing: ai.geminiApiKey ? [] : ['GEMINI_API_KEY'],
       configured: Boolean(ai.geminiApiKey),
       model: ai.geminiApiKey ? ai.geminiModel : 'deterministic-rule-engine',
       baseUrl: ai.geminiBaseUrl,
@@ -81,7 +47,7 @@ export class GeminiClient {
    * Single-turn generation. Throws `AiNotConfiguredError` when no key is set and
    * `AiProviderError` when the provider rejects the call or times out.
    */
-  async generate(request: GeminiRequest): Promise<GeminiResponse> {
+  async generate(request: LlmRequest): Promise<LlmResponse> {
     const ai = appConfig().ai;
     if (!ai.geminiApiKey) throw new AiNotConfiguredError();
 
