@@ -51,7 +51,7 @@ export const ALERT_ACTION_REASONS_REQUIRED: AlertAction[] = ['CONFIRM', 'DISMISS
 export const ALERT_REASON_MIN_LENGTH = 10;
 
 /** Technical detector values that must never be presented as a human decision. */
-export const ALERT_DETECTORS = ['LOCAL_RULE_ENGINE', 'GEMINI'] as const;
+export const ALERT_DETECTORS = ['LOCAL_RULE_ENGINE', 'OPENROUTER', 'GEMINI'] as const;
 
 /** Risk ordering, used for sorting and for deciding whether to notify. */
 export const RISK_ORDER: Record<RiskLevel, number> = {
@@ -185,7 +185,12 @@ export function alertPosition(
     requiresHumanDecision: alert.status !== AlertStatus.CONFIRMED && alert.status !== AlertStatus.DISMISSED,
     overdue: isAlertOverdue(alert as { status: AlertStatus; detectedAt: Date }, now, slaHours),
     isClosed: alert.status === AlertStatus.RESOLVED || alert.status === AlertStatus.DISMISSED,
-    detectorLabel: alert.detector === 'GEMINI' ? 'Gemini (narrative only)' : 'FEMS rule engine',
+    detectorLabel:
+      alert.detector === 'OPENROUTER'
+        ? 'OpenRouter (narrative only)'
+        : alert.detector === 'GEMINI'
+          ? 'Gemini (legacy, narrative only)'
+          : 'FEMS rule engine',
     riskScore: RISK_ORDER[alert.riskLevel] * 25 + Math.round((confidence ?? 0) * 25),
   };
 }

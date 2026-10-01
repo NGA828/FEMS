@@ -2,7 +2,7 @@
 
 Checked on 2026-10-01 against the UML use-case diagram (actors: visitor, forest
 explorer, company representative, government forest office, environmental
-officer, admin; external systems: Campay API, Gemini, GIS map).
+officer, admin; external systems: Campay API, the AI provider, GIS map).
 
 Legend: ✅ implemented end-to-end (API + mobile screen) · ⚠️ partial · ❌ missing
 
@@ -78,7 +78,7 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 | System | Status | Notes |
 |---|---|---|
 | Campay API | ✅ | Real HTTP client + webhook; refuses to fake a result when unconfigured (simulator is explicitly labelled). |
-| Groq / Gemini | ✅ | Real clients behind one provider-neutral `LlmClient`. **Groq (free tier) is the default since 2026-10-01** (`AI_PROVIDER=groq`, `GROQ_API_KEY`, default model `llama-3.3-70b-versatile`); Gemini stays selectable and `AI_PROVIDER=none` disables the model entirely. Falls back to the deterministic rule engine, never to invented text. |
+| Groq / OpenRouter | ✅ | Real clients behind one provider-neutral `LlmClient`. **Groq (free tier) is the default since 2026-10-01** (`AI_PROVIDER=groq`, `GROQ_API_KEY`, default model `llama-3.3-70b-versatile`); `AI_PROVIDER=openrouter` selects OpenRouter and `AI_PROVIDER=none` disables the model entirely. Falls back to the deterministic rule engine, never to invented text. |
 | GIS map | ✅ | `MAPS_TILE_URL` + `/gis/*`; Leaflet on web, `react-native-maps` on device. |
 | Authentication (`<<include>>` on every use case) | ✅ | Global `JwtAuthGuard` + role/permission guards; public routes are opt-in. |
 

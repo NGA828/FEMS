@@ -51,12 +51,12 @@ describe('MetricsService', () => {
 
   it('records a failed job and re-throws so nothing is swallowed', async () => {
     await expect(metrics.track('ai-risk-sweep', async () => {
-      throw new Error('Gemini unreachable');
-    })).rejects.toThrow('Gemini unreachable');
+      throw new Error('AI provider unreachable');
+    })).rejects.toThrow('AI provider unreachable');
 
     const job = metrics.snapshot().jobs.find((entry) => entry.name === 'ai-risk-sweep');
     expect(job).toMatchObject({ runs: 1, failures: 1 });
-    expect(job?.lastRun).toMatchObject({ status: 'FAILED', message: 'Gemini unreachable' });
+    expect(job?.lastRun).toMatchObject({ status: 'FAILED', message: 'AI provider unreachable' });
   });
 
   it('lists a declared job that has never run', () => {

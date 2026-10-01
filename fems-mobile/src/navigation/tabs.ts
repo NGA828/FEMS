@@ -1,7 +1,7 @@
 /**
  * Role-aware navigation.
  *
- * Each of the eight roles gets a distinct working set of tabs — a field operator
+ * Each role gets a distinct working set of tabs — a field operator
  * does not need a permit register, and an explorer has no business with the
  * compliance console. Hiding a tab is a usability decision only: every screen
  * behind it calls an endpoint whose guards run on the server, so a hand-typed
@@ -50,7 +50,6 @@ const ROLE_TABS: Record<RoleName, TabName[]> = {
   FIELD_OPERATOR: ['dashboard', 'field', 'map', 'sync', 'profile'],
   COMPANY_REPRESENTATIVE: ['dashboard', 'permits', 'field', 'payments', 'profile'],
   FOREST_EXPLORER: ['dashboard', 'forests', 'assistant', 'map', 'profile'],
-  VISITOR: ['dashboard', 'forests', 'assistant', 'profile'],
 };
 
 /**
@@ -66,15 +65,15 @@ export function primaryRoleSummary(user: AuthUser | null) {
 
 export function primaryRoleName(user: AuthUser | null): RoleName {
   const roles = user?.roles ?? [];
-  if (roles.length === 0) return 'VISITOR';
+  if (roles.length === 0) return 'FOREST_EXPLORER';
   const ranked = [...roles].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
   const known = ranked.find((role) => role.name in ROLE_TABS);
-  return (known?.name ?? ranked[0]?.name ?? 'VISITOR') as RoleName;
+  return (known?.name ?? ranked[0]?.name ?? 'FOREST_EXPLORER') as RoleName;
 }
 
 export function tabsFor(user: AuthUser | null): TabDefinition[] {
   const role = primaryRoleName(user);
-  // A role the app does not know must never silently collapse to the visitor
+  // A role the app does not know must never silently collapse to the narrowest
   // experience: fall back to the permissions the server actually granted.
   const tabs = ROLE_TABS[role] ?? tabsFromPermissions(user?.permissions ?? []);
   return tabs.map((name) => TAB_DEFINITIONS[name]);
@@ -135,7 +134,7 @@ export function roleContext(user: AuthUser | null, hasPermission: (permission: s
     isRegulator: isAdministrator || role === 'GOVERNMENT_FOREST_OFFICER' || role === 'ENVIRONMENTAL_OFFICER',
     isFieldWorker: role === 'FOREST_INSPECTOR' || role === 'FIELD_OPERATOR' || role === 'ENVIRONMENTAL_OFFICER',
     isCompanyAccount,
-    isPublicAccount: role === 'VISITOR' || role === 'FOREST_EXPLORER',
+    isPublicAccount: role === 'FOREST_EXPLORER',
     canApplyForPermit: hasPermission('permits:create') || hasPermission('permits:manage_own'),
     canDecidePermit: hasPermission('permits:approve') || hasPermission('permits:reject') || isAdministrator,
     canHandleViolations: hasPermission('environmental:update') || hasPermission('environmental:confirm'),

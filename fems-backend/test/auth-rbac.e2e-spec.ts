@@ -149,7 +149,6 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
         operator: 'demo.operator@fems.cm',
         company: 'demo.company@fems.cm',
         explorer: 'demo.explorer@fems.cm',
-        visitor: 'demo.visitor@fems.cm',
       })) {
         tokens[role] = await ctx.login(email, DEMO_PASSWORD);
       }
@@ -172,20 +171,6 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
         const response = await ctx.api().get(`${API}${path}`);
         expect(response.status).toBe(401);
       }
-    });
-
-    it('keeps the visitor role read-only', async () => {
-      const permits = await ctx.api().get(`${API}/permits`).set(...bearer(tokens.visitor));
-      expect(permits.status).toBe(403);
-
-      const users = await ctx.api().get(`${API}/users`).set(...bearer(tokens.visitor));
-      expect(users.status).toBe(403);
-
-      const alertReview = await ctx.api()
-        .post(`${API}/ai/alerts/${seededAlertId}/review`)
-        .set(...bearer(tokens.visitor))
-        .send({ action: 'START_REVIEW' });
-      expect(alertReview.status).toBe(403);
     });
 
     it('scopes a company account to its own file and its own data', async () => {
@@ -218,7 +203,7 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
       expect(rows.every((row) => row.companyId === companyId)).toBe(true);
 
       // The public-facing roles cannot see case files at all.
-      for (const role of ['explorer', 'visitor']) {
+      for (const role of ['explorer']) {
         const denied = await ctx.api().get(`${API}/violations`).set(...bearer(tokens[role]));
         expect(denied.status).toBe(403);
       }
@@ -232,7 +217,7 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
         expect(audit.status).toBe(200);
       }
 
-      for (const role of ['environment', 'inspector', 'operator', 'company', 'explorer', 'visitor']) {
+      for (const role of ['environment', 'inspector', 'operator', 'company', 'explorer']) {
         const users = await ctx.api().get(`${API}/users`).set(...bearer(tokens[role]));
         expect(users.status).toBe(403);
         const audit = await ctx.api().get(`${API}/audit`).set(...bearer(tokens[role]));
@@ -244,7 +229,7 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
         const created = await ctx.api()
           .post(`${API}/users`)
           .set(...bearer(tokens[role]))
-          .send({ email: `e2e.forbidden.${role}@e2e.fems.test`, firstName: 'E2e', lastName: 'Forbidden', role: 'VISITOR' });
+          .send({ email: `e2e.forbidden.${role}@e2e.fems.test`, firstName: 'E2e', lastName: 'Forbidden', role: 'FOREST_EXPLORER' });
         expect(created.status).toBe(403);
       }
     });
@@ -270,7 +255,7 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
       // with a review action must not widen what the caller may do.
       const forged = await ctx.api()
         .post(`${API}/ai/alerts/${seededAlertId}/review`)
-        .set(...bearer(tokens.visitor))
+        .set(...bearer(tokens.explorer))
         .send({ action: 'START_REVIEW', role: 'ADMINISTRATOR', permissions: ['*'] });
       expect([400, 403]).toContain(forged.status);
     });
@@ -290,7 +275,7 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
     it('requires the current password to change a password', async () => {
       const wrong = await ctx.api()
         .post(`${API}/auth/password/change`)
-        .set(...bearer(tokens.visitor))
+        .set(...bearer(tokens.explorer))
         .send({ currentPassword: 'definitely-not-it', newPassword: 'E2e-Change#2026' });
       expect([400, 401]).toContain(wrong.status);
 

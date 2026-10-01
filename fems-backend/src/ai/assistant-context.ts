@@ -73,6 +73,9 @@ export const ASSISTANT_MIN_QUESTION_LENGTH = 3;
 export const ASSISTANT_MAX_RECORDS_PER_SECTION = 15;
 /** Hard character ceiling for the rendered context. */
 export const ASSISTANT_MAX_CONTEXT_CHARS = 12_000;
+/** Keep provider conversation history bounded as well as the live data context. */
+export const ASSISTANT_MAX_HISTORY_MESSAGES = 6;
+export const ASSISTANT_MAX_HISTORY_MESSAGE_CHARS = 2_000;
 
 export const ASSISTANT_DISCLAIMER =
   'The assistant is advisory only: it summarises records held in FEMS, it does not accuse anybody and it never replaces an officer’s decision.';
@@ -84,8 +87,38 @@ export const ASSISTANT_SYSTEM_INSTRUCTION = [
   'Never invent identifiers, volumes, amounts, dates or references: quote only what the context contains, with its units.',
   'Never promise an outcome, never issue an authorisation, never give legal advice. Where a decision is needed, name the responsible role and the next procedural step.',
   'Respect confidentiality: only the data in this context may be mentioned, and only aggregate it when the caller is a company account.',
+  'Use earlier turns only to understand follow-up references. The current authorised data context is the only source of current facts; correct earlier answers when this context differs.',
   'Answer in the language of the question (French or English), in at most six short paragraphs, with figures rounded as they appear in the context.',
 ].join(' ');
+
+/** Converts the most recent stored turns to chat history with bounded message sizes. */
+export function buildAssistantHistory(
+  messages: Array<
+    | { role: 'USER'; content: string }
+    | { role: 'ASSISTANT'; content: string }
+    | { role: 'SYSTEM' | 'ERROR'; content: string }
+  >,
+) {
+  const exchanges: Array<Array<{ role: 'USER' | 'ASSISTANT'; content: string }>> = [];
+  let pendingQuestion: { role: 'USER'; content: string } | null = null;
+
+  for (const message of messages) {
+    if (message.role === 'USER') {
+      pendingQuestion = message;
+    } else if (message.role === 'ASSISTANT' && pendingQuestion) {
+      exchanges.push([pendingQuestion, message]);
+      pendingQuestion = null;
+    }
+  }
+
+  return exchanges
+    .slice(-(ASSISTANT_MAX_HISTORY_MESSAGES / 2))
+    .flat()
+    .map(({ role, content }) => ({
+      role: role === 'USER' ? ('user' as const) : ('model' as const),
+      text: content.slice(0, ASSISTANT_MAX_HISTORY_MESSAGE_CHARS),
+    }));
+}
 
 /** Selects the sections a caller may see, and records why the others are withheld. */
 export function selectSections(permissions: string[]): { allowed: AssistantSectionKey[]; decisions: SectionDecision[] } {

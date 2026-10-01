@@ -24,13 +24,12 @@ export interface PaginationMeta {
 // ------------------------------------------------------------------- identity
 
 /**
- * The eight roles of the server catalogue (`ROLE_NAMES` in
+ * The seven roles of the server catalogue (`ROLE_NAMES` in
  * fems-backend/src/common/constants/permissions.ts). These strings must match
  * the API exactly: the app keys its navigation off them, and a name the server
  * never emits silently downgrades an account to the visitor experience.
  */
 export type RoleName =
-  | 'VISITOR'
   | 'FOREST_EXPLORER'
   | 'COMPANY_REPRESENTATIVE'
   | 'GOVERNMENT_FOREST_OFFICER'
@@ -770,7 +769,7 @@ export type AiAnalysisType =
   | 'PERMIT_REVIEW_ASSIST'
   | 'EXPLOITATION_PATTERN';
 export type AiAnalysisStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-export type AiProvider = 'GROQ' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
+export type AiProvider = 'GROQ' | 'OPENROUTER' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
 
 export interface AiAlert {
   id: Identifier;
@@ -888,10 +887,8 @@ export interface AiRule {
 
 export interface AiStatus {
   provider: AiProvider;
-  /** True when a model provider (Groq or Gemini) holds a key on the server. */
+  /** True when a model provider (Groq or OpenRouter) holds a key on the server. */
   providerConfigured: boolean;
-  /** @deprecated same value as `providerConfigured`; kept for older builds. */
-  geminiConfigured: boolean;
   model: string;
   deterministicEngine: {
     version: string;
@@ -957,8 +954,6 @@ export interface AssistantAnswer {
   model?: string | null;
   /** False when no provider key is configured; the rule engine produced the answer. */
   providerConfigured: boolean;
-  /** @deprecated same value as `providerConfigured`. */
-  geminiConfigured: boolean;
   providerError?: string | null;
   intent?: string | null;
   latencyMs: number;

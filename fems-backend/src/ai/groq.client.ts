@@ -70,6 +70,10 @@ export class GroqClient {
           model: this.model,
           messages: [
             ...(request.systemInstruction ? [{ role: 'system', content: request.systemInstruction }] : []),
+            ...(request.history ?? []).map(({ role, text }) => ({
+              role: role === 'model' ? 'assistant' : 'user',
+              content: text,
+            })),
             { role: 'user', content: request.prompt },
           ],
           temperature: request.temperature ?? 0.2,

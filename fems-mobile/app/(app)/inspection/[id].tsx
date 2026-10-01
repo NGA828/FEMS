@@ -10,7 +10,7 @@
  * opened are still open).
  */
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -79,6 +79,8 @@ export default function InspectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const compactLayout = width < 380;
   const router = useRouter();
   const toast = useToast();
   const { user, hasPermission } = useAuth();
@@ -240,7 +242,11 @@ export default function InspectionDetailScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 48 }}
+      contentContainerStyle={{
+        paddingHorizontal: compactLayout ? 12 : 16,
+        paddingTop: insets.top + 12,
+        paddingBottom: insets.bottom + 32,
+      }}
       refreshControl={
         <RefreshControl refreshing={inspection.isRefetching} onRefresh={() => inspection.refetch()} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />
       }
@@ -251,16 +257,14 @@ export default function InspectionDetailScreen() {
         </Caption>
       </Pressable>
 
-      <Row justify="space-between" align="flex-start" style={{ marginBottom: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Row gap={6}>
-            <Body style={{ fontWeight: '800', fontSize: 17 }}>{data.reference}</Body>
-            {data.isDemo ? <Badge label="DEMO" tone="info" compact /> : null}
-          </Row>
-          <Title>{data.title}</Title>
-        </View>
-        <StatusPill status={data.status} label={inspectionStatusLabel(data.status, language)} />
-      </Row>
+      <View style={{ marginBottom: 10 }}>
+        <Row gap={6} wrap justify="space-between" style={{ marginBottom: 4 }}>
+          <Body style={{ fontWeight: '800', fontSize: 17 }}>{data.reference}</Body>
+          {data.isDemo ? <Badge label="DEMO" tone="info" compact /> : null}
+          <StatusPill status={data.status} label={inspectionStatusLabel(data.status, language)} />
+        </Row>
+        <Title>{data.title}</Title>
+      </View>
 
       <Row gap={12} style={{ marginBottom: 14 }}>
         <ScoreRing value={data.complianceScore ?? null} label="compliance" />
@@ -282,7 +286,7 @@ export default function InspectionDetailScreen() {
             <Caption tone="muted" style={{ marginBottom: 10 }}>
               The API records the device position with this visit, so the distance from the target area can be checked later.
             </Caption>
-            <Row gap={10} style={{ marginBottom: 10 }}>
+            <Row gap={8} wrap style={{ marginBottom: 10 }}>
               <Badge
                 label={position.fix ? `${position.fix.latitude.toFixed(5)}, ${position.fix.longitude.toFixed(5)}` : 'No fix yet'}
                 tone={position.fix ? 'success' : 'warning'}
@@ -298,10 +302,17 @@ export default function InspectionDetailScreen() {
                 </Notice>
               </View>
             ) : null}
-            <Row gap={8}>
-              <Button label="Get position" variant="secondary" icon="navigate-outline" loading={position.loading} onPress={() => void position.refresh()} />
-              <Button label="Start inspection" icon="play-outline" loading={busy} disabled={!position.fix} onPress={() => void doStart()} />
-            </Row>
+            {compactLayout ? (
+              <View style={{ gap: 8 }}>
+                <Button label="Get position" fullWidth variant="secondary" icon="navigate-outline" loading={position.loading} onPress={() => void position.refresh()} />
+                <Button label="Start inspection" fullWidth icon="play-outline" loading={busy} disabled={!position.fix} onPress={() => void doStart()} />
+              </View>
+            ) : (
+              <Row gap={8} wrap>
+                <Button label="Get position" variant="secondary" icon="navigate-outline" loading={position.loading} onPress={() => void position.refresh()} />
+                <Button label="Start inspection" icon="play-outline" loading={busy} disabled={!position.fix} onPress={() => void doStart()} />
+              </Row>
+            )}
           </Card>
         </ToneScope>
       ) : null}
@@ -336,8 +347,8 @@ export default function InspectionDetailScreen() {
               const editable = canSubmit;
               return (
                 <View key={item.code} style={{ marginBottom: index === effectiveChecklist.length - 1 ? 0 : 14 }}>
-                  <Row justify="space-between" style={{ marginBottom: 6 }}>
-                    <View style={{ flex: 1 }}>
+                  <Row justify="space-between" align="flex-start" wrap style={{ marginBottom: 6 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Body style={{ fontWeight: '600' }}>{item.label}</Body>
                       <Tiny tone="faint">{item.code}</Tiny>
                     </View>
@@ -348,7 +359,7 @@ export default function InspectionDetailScreen() {
                   </Row>
                   {editable ? (
                     <>
-                      <Row gap={8} style={{ marginBottom: notes[item.id ?? item.code] !== undefined ? 8 : 0 }}>
+                      <Row gap={8} wrap style={{ marginBottom: notes[item.id ?? item.code] !== undefined ? 8 : 0 }}>
                         {CHECKLIST_RESULTS.map((option) => (
                           <Pressable
                             key={option.value}
@@ -403,16 +414,22 @@ export default function InspectionDetailScreen() {
             />
             <TextField label="Summary" multiline value={summary} onChangeText={setSummary} placeholder="What the visit established" />
             <TextField label="Recommendations" multiline value={recommendations} onChangeText={setRecommendations} placeholder="Corrective actions requested from the operator" />
-            <Row gap={10}>
+            <Row gap={10} wrap>
               <TextField
                 label="Verified volume (m³)"
                 keyboardType="numeric"
                 value={verifiedVolume}
                 onChangeText={setVerifiedVolume}
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: compactLayout ? '100%' : 130 }}
                 help="Counter-check of the declared harvest"
               />
-              <TextField label="Verified trees" keyboardType="numeric" value={verifiedTrees} onChangeText={setVerifiedTrees} style={{ flex: 1 }} />
+              <TextField
+                label="Verified trees"
+                keyboardType="numeric"
+                value={verifiedTrees}
+                onChangeText={setVerifiedTrees}
+                style={{ flex: 1, minWidth: compactLayout ? '100%' : 130 }}
+              />
             </Row>
             <TextField label="Discrepancies" multiline value={discrepancies} onChangeText={setDiscrepancies} placeholder="Differences between the register and what was found on site" />
             <Button label="Submit inspection" icon="send-outline" loading={busy} onPress={() => void doSubmit()} fullWidth />

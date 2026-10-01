@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
   type ScrollViewProps,
   type StyleProp,
   type ViewProps,
@@ -45,6 +46,8 @@ export function Screen({
 }: ScreenProps) {
   const theme = useTone();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const horizontalPadding = width < 375 ? spacing.md : spacing.lg;
   // The tab navigator already insets tab screens above the bar, so we only add a
   // consistent breathing gap + the safe-area inset. Adding the full bar height
   // here used to leave a large unexplained blank band at the bottom of screens.
@@ -54,7 +57,7 @@ export function Screen({
     <ScrollView
       style={styles.flex}
       contentContainerStyle={[
-        { padding: spacing.lg, paddingBottom: bottomPadding },
+        { paddingHorizontal: horizontalPadding, paddingTop: horizontalPadding, paddingBottom: bottomPadding },
         contentStyle,
       ]}
       keyboardShouldPersistTaps="handled"
@@ -99,6 +102,7 @@ export function Card({
     <View
       style={[
         {
+          minWidth: 0,
           backgroundColor: theme.colors.surface,
           borderRadius: theme.radii.lg,
           borderWidth: StyleSheet.hairlineWidth,
@@ -155,9 +159,10 @@ export function Row({
   justify?: ViewStyle['justifyContent'];
   wrap?: boolean;
 }) {
+  const { width } = useWindowDimensions();
   return (
     <View
-      style={[{ flexDirection: 'row', alignItems: align, justifyContent: justify, gap, flexWrap: wrap ? 'wrap' : 'nowrap' }, style]}
+      style={[{ flexDirection: 'row', alignItems: align, justifyContent: justify, gap, flexWrap: wrap || width < 375 ? 'wrap' : 'nowrap' }, style]}
       {...rest}
     >
       {children}
@@ -187,7 +192,7 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
   return <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.border }, style]} />;
 }
 
-/** Label/value pair used in detail grids. */
+/** Label/value pair used in detail views; callers opt into grid sizing inside a row. */
 export function Definition({
   label,
   value,
@@ -200,9 +205,7 @@ export function Definition({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    // Stable two-up grid: each cell takes ~half the row so label/value pairs align
-    // in tidy columns instead of ragged widths.
-    <View style={[{ marginBottom: spacing.md, flexGrow: 1, flexBasis: '46%' }, style]}>
+    <View style={[{ marginBottom: spacing.md, minWidth: 0 }, style]}>
       <Caption tone="muted" style={{ marginBottom: 2 }}>
         {label}
       </Caption>
@@ -307,18 +310,20 @@ export function PageHeader({
   compact?: boolean;
 }) {
   const theme = useTone();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 375;
   return (
     <View
       style={{
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
+        flexDirection: isNarrow ? 'column' : 'row',
+        alignItems: isNarrow ? 'stretch' : 'flex-start',
+        justifyContent: isNarrow ? 'flex-start' : 'space-between',
         gap: spacing.md,
-        marginBottom: compact ? spacing.md : spacing.lg,
+        marginBottom: compact || isNarrow ? spacing.md : spacing.lg,
         paddingTop: onBack ? spacing.sm : 0,
       }}
     >
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         {onBack ? (
           <Pressable
             onPress={onBack}
@@ -334,7 +339,11 @@ export function PageHeader({
         <Heading>{title}</Heading>
         {subtitle ? <Caption tone="muted">{subtitle}</Caption> : null}
       </View>
-      {right ? <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>{right}</View> : null}
+      {right ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center', alignSelf: isNarrow ? 'flex-start' : undefined }}>
+          {right}
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -43,9 +43,9 @@ const mask = (value) => (value ? `${value.slice(0, 4)}…${value.slice(-4)} (${v
 
 function resolveProvider() {
   const explicit = (process.env.AI_PROVIDER ?? '').trim().toLowerCase();
-  if (['groq', 'gemini', 'none'].includes(explicit)) return explicit;
+  if (['groq', 'openrouter', 'none'].includes(explicit)) return explicit;
   if (process.env.GROQ_API_KEY) return 'groq';
-  if (process.env.GEMINI_API_KEY) return 'gemini';
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
   return 'groq';
 }
 
@@ -101,24 +101,6 @@ async function callGroq(baseUrl, key, model) {
   };
 }
 
-async function callGemini(baseUrl, key, model) {
-  const startedAt = Date.now();
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: FEMS AI provider OK' }] }] }),
-  });
-  const raw = await response.text();
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${raw.slice(0, 300)}`);
-  const payload = JSON.parse(raw);
-  return {
-    text: (payload.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('').trim(),
-    tokens: payload.usageMetadata?.totalTokenCount ?? null,
-    model,
-    latencyMs: Date.now() - startedAt,
-  };
-}
-
 async function main() {
   loadEnv();
   const provider = resolveProvider();
@@ -134,19 +116,19 @@ async function main() {
   }
 
   const isGroq = provider === 'groq';
-  const key = isGroq ? process.env.GROQ_API_KEY : process.env.GEMINI_API_KEY;
-  const model = isGroq ? process.env.GROQ_MODEL || 'llama-3.3-70b-versatile' : process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const key = isGroq ? process.env.GROQ_API_KEY : process.env.OPENROUTER_API_KEY;
+  const model = isGroq ? process.env.GROQ_MODEL || 'llama-3.3-70b-versatile' : process.env.OPENROUTER_MODEL || 'openrouter/auto';
   const baseUrl = isGroq
     ? process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'
-    : process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
+    : process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 
-  console.log(`  ${isGroq ? 'GROQ_API_KEY         ' : 'GEMINI_API_KEY       '}  ${mask(key)}`);
-  console.log(`  ${isGroq ? 'GROQ_MODEL           ' : 'GEMINI_MODEL         '}  ${model}`);
-  console.log(`  ${isGroq ? 'GROQ_BASE_URL        ' : 'GEMINI_BASE_URL      '}  ${baseUrl}`);
+  console.log(`  ${isGroq ? 'GROQ_API_KEY         ' : 'OPENROUTER_API_KEY   '}  ${mask(key)}`);
+  console.log(`  ${isGroq ? 'GROQ_MODEL           ' : 'OPENROUTER_MODEL     '}  ${model}`);
+  console.log(`  ${isGroq ? 'GROQ_BASE_URL        ' : 'OPENROUTER_BASE_URL  '}  ${baseUrl}`);
   console.log('');
 
   if (!key) {
-    console.log(`  ✗  ${isGroq ? 'GROQ_API_KEY' : 'GEMINI_API_KEY'} is empty.`);
+    console.log(`  ✗  ${isGroq ? 'GROQ_API_KEY' : 'OPENROUTER_API_KEY'} is empty.`);
     if (isGroq) {
       console.log('     Create a free key (no credit card) at https://console.groq.com/keys,');
       console.log('     then put it in fems-backend/.env as GROQ_API_KEY=gsk_… and restart the API.');
@@ -178,7 +160,8 @@ async function main() {
   }
 
   try {
-    const result = isGroq ? await callGroq(baseUrl, key, model) : await callGemini(baseUrl, key, model);
+    // Groq and OpenRouter both speak the OpenAI chat-completions dialect.
+    const result = await callGroq(baseUrl, key, model);
     console.log(`  ✓  ${provider} answered in ${result.latencyMs} ms using ${result.model}`);
     console.log(`     tokens: ${result.tokens ?? 'n/a'}`);
     console.log(`     reply : ${result.text}`);

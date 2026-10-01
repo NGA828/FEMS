@@ -3,7 +3,7 @@
  *
  * What it creates: protected areas, forests and their management zones, twelve
  * commercial timber species with sample inventories, six licensed companies,
- * the eight role accounts, permits in every lifecycle state, field activities
+ * the seeded role accounts, permits in every lifecycle state, field activities
  * captured with real coordinates, payments, inspections with checklists,
  * observations, violations, equipment and reports — then it runs the same
  * deterministic rule engine the API uses (`runRules`) so the alert console
@@ -1164,16 +1164,6 @@ const USERS: UserSpec[] = [
     jobTitle: 'Étudiante en foresterie — Mbalmayo',
     role: 'FOREST_EXPLORER',
     preferredLanguage: 'fr',
-  },
-  {
-    key: 'visitor',
-    email: 'demo.visitor@fems.cm',
-    firstName: 'Peter',
-    lastName: 'Ayuk',
-    phone: '+237 678 51 30 26',
-    jobTitle: 'Chercheur invité — Université de Buea',
-    role: 'VISITOR',
-    preferredLanguage: 'en',
   },
 ];
 

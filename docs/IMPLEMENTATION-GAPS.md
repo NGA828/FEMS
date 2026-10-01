@@ -13,7 +13,7 @@ the mobile Settings screen shows the real transport state, and
 §1.3 is the *writable* side: `SystemSetting` still has no create/update API.
 
 The platform is largely complete: 24 backend modules, ~130 REST endpoints, 39 Prisma
-models, RBAC, cron jobs, real SMTP/Campay/Gemini/Expo-push clients, PDF/CSV/JSON
+models, RBAC, cron jobs, real SMTP/Campay/LLM/Expo-push clients, PDF/CSV/JSON
 reports, offline queue, GIS. The list below is what is **missing, dead, or only
 half-wired**, ordered by impact.
 

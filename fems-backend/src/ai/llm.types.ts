@@ -4,20 +4,22 @@
  * FEMS treats the model as an interchangeable, optional accessory: the
  * deterministic rule engine produces the findings either way, and the model
  * only writes the narrative around them. Keeping the contract here means a
- * provider can be swapped (Groq, Gemini, none) without a single change in
+ * provider can be swapped (Groq, OpenRouter, none) without a single change in
  * `AiService`.
  */
 
-export type AiProviderKey = 'groq' | 'gemini' | 'none';
+export type AiProviderKey = 'groq' | 'openrouter' | 'none';
 
 export interface LlmRequest {
   /** The user turn: the question plus the data the caller is allowed to see. */
   prompt: string;
+  /** Recent authorised conversation turns, oldest first. */
+  history?: Array<{ role: 'user' | 'model'; text: string }>;
   /** Standing instructions (never contains data — it is a fixed policy text). */
   systemInstruction?: string;
   temperature?: number;
   maxOutputTokens?: number;
-  /** Ask the model for `application/json` output. */
+  /** Ask the model for JSON-object output. */
   json?: boolean;
 }
 
@@ -30,8 +32,8 @@ export interface LlmResponse {
 }
 
 export interface LlmDescription {
-  /** Mirrors the `AiProvider` enum stored on analyses and messages. */
-  provider: 'GROQ' | 'GEMINI' | 'LOCAL_RULE_ENGINE';
+  /** Mirrors the `AiProvider` enum stored on analyses, alerts and messages. */
+  provider: 'GROQ' | 'OPENROUTER' | 'LOCAL_RULE_ENGINE';
   configured: boolean;
   model: string;
   baseUrl: string;
@@ -46,7 +48,7 @@ export interface LlmDescription {
 export class AiNotConfiguredError extends Error {
   readonly code = 'AI_NOT_CONFIGURED';
 
-  constructor(message = 'No AI provider is configured. Set GROQ_API_KEY (or GEMINI_API_KEY) to enable it.') {
+  constructor(message = 'No AI provider is configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY) to enable it.') {
     super(message);
     this.name = 'AiNotConfiguredError';
   }

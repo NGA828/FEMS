@@ -44,7 +44,6 @@ export class CreateUserDto {
 
   @ApiProperty({
     enum: [
-      'VISITOR',
       'FOREST_EXPLORER',
       'COMPANY_REPRESENTATIVE',
       'GOVERNMENT_FOREST_OFFICER',

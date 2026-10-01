@@ -14,7 +14,7 @@ type GuardResult = boolean | Promise<boolean> | Observable<boolean>;
  * - `@Public()` routes are reachable anonymously, but if the caller *does*
  *   send a token the principal is still loaded (soft authentication) so public
  *   endpoints can personalise the response — e.g. officers see non-public
- *   forests in the same endpoint a visitor uses to browse public ones.
+ *   forests in the same endpoint a signed-out viewer uses to browse public ones.
  * - Role, permission and account status are re-read from the database on every
  *   request, so revoking access takes effect immediately.
  */
@@ -37,7 +37,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       try {
         return await this.resolve(super.canActivate(context) as GuardResult);
       } catch {
-        // An invalid token on a public route is ignored: the visitor stays anonymous.
+        // An invalid token on a public route is ignored: the caller stays anonymous.
         return true;
       }
     }

@@ -386,7 +386,7 @@ export class SystemService {
     const disabled = status.selected === 'none';
     return {
       key: 'ai',
-      label: `AI provider (${status.selected === 'gemini' ? 'Google Gemini' : status.selected === 'none' ? 'disabled' : 'Groq'})`,
+      label: `AI provider (${status.selected === 'openrouter' ? 'OpenRouter' : status.selected === 'none' ? 'disabled' : 'Groq'})`,
       state: status.configured ? 'READY' : disabled ? 'DISABLED' : 'MISCONFIGURED',
       summary: status.configured
         ? `${status.provider} ${status.model} writes assistant answers and narrative analyses. The deterministic rule engine runs regardless.`
@@ -397,7 +397,7 @@ export class SystemService {
       details: {
         selected: status.selected,
         model: status.model,
-        baseUrl: status.selected === 'gemini' ? ai.geminiBaseUrl : ai.groqBaseUrl,
+        baseUrl: status.selected === 'openrouter' ? ai.openRouterBaseUrl : ai.groqBaseUrl,
         ruleEngine: true,
         freeTierNote:
           status.selected === 'groq'

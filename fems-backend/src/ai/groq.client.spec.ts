@@ -1,5 +1,5 @@
 import { GroqClient } from './groq.client';
-import { GeminiClient } from './gemini.client';
+import { OpenRouterClient } from './openrouter.client';
 import { LlmClient } from './llm.client';
 import { AiNotConfiguredError, AiProviderError } from './llm.types';
 import { resetConfigCache } from '../config/configuration';
@@ -14,7 +14,7 @@ import { resetConfigCache } from '../config/configuration';
 const ORIGINAL_ENV = { ...process.env };
 
 function setEnv(env: Record<string, string | undefined>) {
-  for (const key of ['AI_PROVIDER', 'GROQ_API_KEY', 'GROQ_MODEL', 'GROQ_BASE_URL', 'GEMINI_API_KEY', 'GEMINI_MODEL']) {
+  for (const key of ['AI_PROVIDER', 'GROQ_API_KEY', 'GROQ_MODEL', 'GROQ_BASE_URL', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL']) {
     delete process.env[key];
   }
   for (const [key, value] of Object.entries(env)) {
@@ -127,7 +127,7 @@ describe('GroqClient', () => {
 });
 
 describe('LlmClient — provider resolution', () => {
-  const build = () => new LlmClient(new GroqClient(), new GeminiClient());
+  const build = () => new LlmClient(new GroqClient(), new OpenRouterClient());
 
   it('uses Groq when only a Groq key is present', () => {
     setEnv({ GROQ_API_KEY: 'gsk_test' });
@@ -135,29 +135,29 @@ describe('LlmClient — provider resolution', () => {
     expect(build().describe().provider).toBe('GROQ');
   });
 
-  it('uses Gemini when only a Gemini key is present', () => {
-    setEnv({ GEMINI_API_KEY: 'AIza_test' });
+  it('uses OpenRouter when only an OpenRouter key is present', () => {
+    setEnv({ OPENROUTER_API_KEY: 'sk-or-test' });
     const client = build();
-    expect(client.provider).toBe('gemini');
-    expect(client.describe().provider).toBe('GEMINI');
+    expect(client.provider).toBe('openrouter');
+    expect(client.describe().provider).toBe('OPENROUTER');
   });
 
   it('prefers Groq when both keys are present and nothing is pinned', () => {
-    setEnv({ GROQ_API_KEY: 'gsk_test', GEMINI_API_KEY: 'AIza_test' });
+    setEnv({ GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
     expect(build().provider).toBe('groq');
   });
 
   it('honours an explicit AI_PROVIDER over the keys that happen to be set', () => {
-    setEnv({ AI_PROVIDER: 'gemini', GROQ_API_KEY: 'gsk_test', GEMINI_API_KEY: 'AIza_test' });
-    expect(build().provider).toBe('gemini');
+    setEnv({ AI_PROVIDER: 'openrouter', GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
+    expect(build().provider).toBe('openrouter');
   });
 
   it('falls back to the rule engine when the selected provider has no key', () => {
-    setEnv({ AI_PROVIDER: 'gemini', GROQ_API_KEY: 'gsk_test' });
+    setEnv({ AI_PROVIDER: 'openrouter', GROQ_API_KEY: 'gsk_test' });
     const client = build();
     expect(client.provider).toBe('none');
     expect(client.isConfigured).toBe(false);
-    expect(client.describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['GEMINI_API_KEY'] });
+    expect(client.describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['OPENROUTER_API_KEY'] });
   });
 
   it('treats AI_PROVIDER=none as a deliberate choice, not a misconfiguration', async () => {

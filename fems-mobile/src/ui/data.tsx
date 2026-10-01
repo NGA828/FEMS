@@ -7,7 +7,7 @@
  * it appears.
  */
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { riskColor, spacing } from '../theme/tokens';
@@ -366,7 +366,7 @@ export function ScoreRing({
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
       <Svg width={size} height={size}>
-        <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
+        <G transform={`rotate(-90 ${size / 2} ${size / 2})`}>
           <Circle cx={size / 2} cy={size / 2} r={radius} stroke={theme.colors.surfaceAlt} strokeWidth={8} fill="transparent" />
           <Circle
             cx={size / 2}
@@ -514,6 +514,7 @@ export function DataTable({
   maxRows?: number;
 }) {
   const theme = useTone();
+  const { width } = useWindowDimensions();
   if (!rows.length) {
     return (
       <Caption tone="muted" style={{ paddingVertical: spacing.md }}>
@@ -521,8 +522,18 @@ export function DataTable({
       </Caption>
     );
   }
-  return (
-    <View style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, borderRadius: theme.radii.md, overflow: 'hidden' }}>
+  const minTableWidth = width < 480 && columns.length > 3 ? columns.length * 128 : undefined;
+
+  const table = (
+    <View
+      style={{
+        width: minTableWidth ?? '100%',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors.border,
+        borderRadius: theme.radii.md,
+        overflow: 'hidden',
+      }}
+    >
       <View style={{ flexDirection: 'row', backgroundColor: theme.colors.surfaceAlt }}>
         {columns.map((column) => (
           <View key={column.key} style={{ flex: 1, padding: spacing.sm }}>
@@ -557,6 +568,14 @@ export function DataTable({
         </View>
       ) : null}
     </View>
+  );
+
+  return minTableWidth ? (
+    <ScrollView horizontal style={{ maxWidth: '100%' }} showsHorizontalScrollIndicator>
+      {table}
+    </ScrollView>
+  ) : (
+    table
   );
 }
 

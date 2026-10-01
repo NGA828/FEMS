@@ -21,7 +21,6 @@ import {
   RiskLevel,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { MetricsService } from '../common/metrics/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GisService } from '../gis/gis.service';
@@ -64,6 +63,7 @@ import {
   ASSISTANT_SYSTEM_INSTRUCTION,
   ASSISTANT_DISCLAIMER,
   answerFromContext,
+  buildAssistantHistory,
   buildAssistantContext,
   detectIntent,
   renderContextForProvider,
@@ -111,7 +111,7 @@ const ALERT_REVIEWER_ROLES = [
  *   - Forest Intelligence: a deterministic rule engine over the live database
  *     raises labelled *signals* (never accusations) that an officer must review.
  *   - Forest Assistant: answers questions from the records the caller is
- *     authorised to read; the model provider (Groq by default, Gemini optional)
+ *     authorised to read; the model provider (Groq by default, OpenRouter optional)
  *     is used only when a key is configured,
  *     and only as a narrator of data FEMS has already authorised.
  */
@@ -125,10 +125,7 @@ export class AiService {
     private readonly notifications: NotificationsService,
     private readonly gis: GisService,
     private readonly llm: LlmClient,
-    private readonly metrics: MetricsService,
-  ) {
-    this.metrics.declareJob('ai-risk-sweep');
-  }
+  ) {}
 
   // ------------------------------------------------------------------- status
 
@@ -149,8 +146,6 @@ export class AiService {
     return {
       provider: provider.provider,
       providerConfigured: provider.configured,
-      /** @deprecated kept for older app builds — use `providerConfigured`. */
-      geminiConfigured: provider.configured,
       model: provider.model,
       deterministicEngine: {
         version: DETECTOR_VERSION,
@@ -186,8 +181,8 @@ export class AiService {
     switch (this.llm.provider) {
       case 'groq':
         return AiProvider.GROQ;
-      case 'gemini':
-        return AiProvider.GEMINI;
+      case 'openrouter':
+        return AiProvider.OPENROUTER;
       default:
         return AiProvider.LOCAL_RULE_ENGINE;
     }
@@ -380,7 +375,7 @@ export class AiService {
           'The deterministic rule engine produced every risk level and every figure above; no model decided them.',
           ...(providerError ? [`The model narrative was unavailable: ${providerError}`] : []),
           ...(dto.useProvider !== false && !this.llm.isConfigured
-            ? ['GEMINI_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
+            ? ['OPENROUTER_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
             : []),
         ],
       };
@@ -772,6 +767,21 @@ export class AiService {
     const snapshot = await this.buildAssistantSnapshot(user, dto);
     const { allowed, decisions } = selectSections(user.permissions);
     const context = buildAssistantContext(snapshot, allowed, decisions);
+    const scopeFingerprint = JSON.stringify({
+      scope: this.describeScope(user, dto),
+      permissions: [...user.permissions].sort(),
+    });
+    const previousContext = parseJsonObject<{ scopeFingerprint?: string }>(conversation?.contextJson);
+    const previousMessages =
+      this.llm.isConfigured && conversation && previousContext?.scopeFingerprint === scopeFingerprint
+        ? await this.prisma.aIMessage.findMany({
+            where: { conversationId: conversation.id, role: { in: ['USER', 'ASSISTANT'] } },
+            orderBy: { createdAt: 'desc' },
+            take: 12,
+            select: { role: true, content: true },
+          })
+        : [];
+    const history = buildAssistantHistory(previousMessages.reverse());
 
     await this.prisma.aIMessage.create({
       data: {
@@ -803,6 +813,7 @@ export class AiService {
             `Question: ${question}`,
             `Answer in the question's language. Mention that the data covers ${context.companyId ? 'their company only' : 'the scope of their role'}.`,
           ].join('\n'),
+          history,
         });
         answerText = response.text;
         provider = this.providerEnum;
@@ -838,7 +849,7 @@ export class AiService {
         answerText = `${ruleAnswer.text}\n\n(Note: the AI provider call failed — ${providerError} — so this answer was computed by the FEMS rule engine from the same authorised data.)`;
       }
     } else {
-      answerText = `${ruleAnswer.text}\n\n(Note: GEMINI_API_KEY is not configured, so this answer was computed by the FEMS rule engine from your authorised data.)`;
+      answerText = `${ruleAnswer.text}\n\n(Note: OPENROUTER_API_KEY is not configured, so this answer was computed by the FEMS rule engine from your authorised data.)`;
     }
 
     const latencyMs = Date.now() - startedAt;
@@ -865,6 +876,7 @@ export class AiService {
           sections: context.sections.map((section) => ({ key: section.key, records: section.records.length })),
           withheld: context.withheld,
           scope: this.describeScope(user, dto),
+          scopeFingerprint,
         }),
         ...(conversation ? {} : { title: question.slice(0, 120) }),
       },
@@ -892,7 +904,6 @@ export class AiService {
       provider,
       model: model ?? 'deterministic-rule-engine',
       providerConfigured: this.llm.isConfigured,
-      geminiConfigured: this.llm.isConfigured,
       providerError,
       intent: ruleAnswer.intent,
       latencyMs,
@@ -984,10 +995,6 @@ export class AiService {
    * raised for findings that are not already awaiting review.
    */
   @Cron('0 4 * * *', { name: 'ai-risk-sweep' })
-  async scheduledRiskSweepJob(): Promise<void> {
-    await this.metrics.track('ai-risk-sweep', () => this.scheduledRiskSweep());
-  }
-
   async scheduledRiskSweep(): Promise<void> {
     if (!appConfig().ai.riskScheduleEnabled) {
       this.logger.log('Scheduled AI risk sweep is disabled by AI_RISK_SCHEDULE_ENABLED.');

@@ -50,6 +50,25 @@ JWT_REFRESH_SECRET="replace-with-a-different-long-random-secret"
 PAYMENT_PROVIDER="simulator"
 ```
 
+### Enable the conversational Forest Assistant
+
+The mobile app includes the Forest Assistant. Without an OpenRouter key it
+answers from the deterministic FEMS rule engine; to enable model-backed
+assistant answers and analysis summaries, create an OpenRouter API key and add
+it to `fems-backend\.env`:
+
+```env
+OPENROUTER_API_KEY="your-key"
+OPENROUTER_MODEL="openrouter/auto"
+```
+
+Restart the backend after changing `.env`. The key stays on the backend and is
+never sent to the mobile app. Each reply uses the caller's currently authorised
+FEMS records; follow-up turns are included only while the conversation's data
+scope and permissions remain unchanged. Never commit `.env` or share the key.
+Set `OPENROUTER_MODEL` to a specific OpenRouter model ID if you do not want
+OpenRouter to select a model automatically.
+
 The default XAMPP database config is:
 
 - database: `fems`
@@ -441,12 +460,12 @@ the state in the app at **Settings → Artificial intelligence**, or over HTTP a
 | `.env` | Effect |
 |---|---|
 | `AI_PROVIDER=groq` + `GROQ_API_KEY` | Groq answers (default) |
-| `AI_PROVIDER=gemini` + `GEMINI_API_KEY` | Google Gemini answers |
+| `AI_PROVIDER=openrouter` + `OPENROUTER_API_KEY` | OpenRouter answers |
 | `AI_PROVIDER=none` | No model is ever called; the deterministic rule engine answers everything |
 | `AI_PROVIDER` empty | Inferred from whichever key is set, preferring Groq |
 
 Whichever is in force is recorded on every analysis and assistant message
-(`provider` = `GROQ`, `GEMINI` or `LOCAL_RULE_ENGINE`), so an answer can always
+(`provider` = `GROQ`, `OPENROUTER` or `LOCAL_RULE_ENGINE`), so an answer can always
 be traced back to what produced it.
 
 ### Troubleshooting

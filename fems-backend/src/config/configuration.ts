@@ -39,13 +39,13 @@ const bool = (value: string | undefined, fallback: boolean): boolean => {
 /**
  * Which AI provider answers. `AI_PROVIDER` wins when it names one; otherwise the
  * provider is inferred from the key that is actually present, preferring Groq
- * (free tier) over Gemini. No key at all means the deterministic rule engine.
+ * (free tier) over OpenRouter. No key at all means the deterministic rule engine.
  */
-const aiProvider = (): 'groq' | 'gemini' | 'none' => {
+const aiProvider = (): 'groq' | 'openrouter' | 'none' => {
   const explicit = (process.env.AI_PROVIDER ?? '').trim().toLowerCase();
-  if (explicit === 'groq' || explicit === 'gemini' || explicit === 'none') return explicit;
+  if (explicit === 'groq' || explicit === 'openrouter' || explicit === 'none') return explicit;
   if (process.env.GROQ_API_KEY) return 'groq';
-  if (process.env.GEMINI_API_KEY) return 'gemini';
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
   return 'groq';
 };
 
@@ -105,14 +105,14 @@ export interface AppConfig {
     };
   };
   ai: {
-    /** Which provider answers: Groq (default, free tier), Gemini, or none. */
-    provider: 'groq' | 'gemini' | 'none';
+    /** Which provider answers: Groq (default, free tier), OpenRouter, or none. */
+    provider: 'groq' | 'openrouter' | 'none';
     groqApiKey: string;
     groqModel: string;
     groqBaseUrl: string;
-    geminiApiKey: string;
-    geminiModel: string;
-    geminiBaseUrl: string;
+    openRouterApiKey: string;
+    openRouterModel: string;
+    openRouterBaseUrl: string;
     requestTimeoutMs: number;
     maxOutputTokens: number;
     reviewSlaHours: number;
@@ -206,9 +206,9 @@ export function appConfig(): AppConfig {
       // alternative, `openai/gpt-oss-120b` the stronger one.
       groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
       groqBaseUrl: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
-      geminiApiKey: process.env.GEMINI_API_KEY ?? '',
-      geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
-      geminiBaseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
+      openRouterApiKey: process.env.OPENROUTER_API_KEY ?? '',
+      openRouterModel: process.env.OPENROUTER_MODEL ?? 'openrouter/auto',
+      openRouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
       requestTimeoutMs: num(process.env.AI_REQUEST_TIMEOUT_MS, 30_000),
       maxOutputTokens: num(process.env.AI_MAX_OUTPUT_TOKENS, 2048),
       reviewSlaHours: num(process.env.AI_ALERT_REVIEW_SLA_HOURS, 72),
@@ -245,14 +245,16 @@ export function appConfig(): AppConfig {
 /** The AI provider in force, as reported to clients (never the key itself). */
 export function aiIntegrationStatus() {
   const { ai } = appConfig();
-  const key = ai.provider === 'groq' ? ai.groqApiKey : ai.provider === 'gemini' ? ai.geminiApiKey : '';
+  const key = ai.provider === 'groq' ? ai.groqApiKey : ai.provider === 'openrouter' ? ai.openRouterApiKey : '';
   const configured = Boolean(key);
   return {
     selected: ai.provider,
-    provider: (configured ? (ai.provider === 'groq' ? 'GROQ' : 'GEMINI') : 'LOCAL_RULE_ENGINE') as 'GROQ' | 'GEMINI' | 'LOCAL_RULE_ENGINE',
+    provider: (configured ? (ai.provider === 'groq' ? 'GROQ' : 'OPENROUTER') : 'LOCAL_RULE_ENGINE') as 'GROQ' | 'OPENROUTER' | 'LOCAL_RULE_ENGINE',
     configured,
-    model: configured ? (ai.provider === 'groq' ? ai.groqModel : ai.geminiModel) : 'deterministic-rule-engine',
-    missing: configured ? [] : ai.provider === 'gemini' ? ['GEMINI_API_KEY'] : ai.provider === 'none' ? [] : ['GROQ_API_KEY'],
+    model: configured ? (ai.provider === 'groq' ? ai.groqModel : ai.openRouterModel) : 'deterministic-rule-engine',
+    missing: configured ? [] : ai.provider === 'openrouter' ? ['OPENROUTER_API_KEY'] : ai.provider === 'none' ? [] : ['GROQ_API_KEY'],
+    /** Older clients read this name. */
+    providerConfigured: configured,
   };
 }
 
