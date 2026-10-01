@@ -6,13 +6,25 @@
  * actions an administrator can take — suspend, reactivate, reset a password.
  * FEMS will not let an administrator suspend their own account.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ApiError } from '../../../src/api/client';
 import type { DirectoryUser } from '../../../src/api/types';
-import { useAuditLog, useResetUserPassword, useRoleList, useSetUserStatus, useUser } from '../../../src/api/queries';
+import {
+  useAuditLog,
+  useDeactivateUser,
+  useGrantUserRole,
+  useResetUserPassword,
+  useRestoreUser,
+  useRevokeUserRole,
+  useRoleList,
+  useRoles,
+  useSetUserStatus,
+  useUpdateUser,
+  useUser,
+} from '../../../src/api/queries';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatDateTime, formatRelative, humanize, userStatusLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
@@ -31,7 +43,9 @@ import {
   Row,
   Screen,
   Section,
+  SelectSheet,
   SkeletonDetail,
+  TextField,
   Tiny,
   useConfirm,
   useToast,
@@ -50,6 +64,17 @@ export default function AccountDetailScreen() {
   const resetPassword = useResetUserPassword();
   const audit = useAuditLog({ limit: 10, actorId: id });
   const roleList = useRoleList();
+  const roleCatalogue = useRoles();
+  const updateUser = useUpdateUser(id ?? '');
+  const grantRole = useGrantUserRole(id ?? '');
+  const revokeRole = useRevokeUserRole(id ?? '');
+  const deactivate = useDeactivateUser(id ?? '');
+  const restore = useRestoreUser(id ?? '');
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [edited, setEdited] = useState<{ firstName: string; lastName: string; phone: string; jobTitle: string } | null>(null);
+  const [roleToGrant, setRoleToGrant] = useState<string | null>(null);
+  const [roleExpiry, setRoleExpiry] = useState('');
 
   if (account.isLoading) {
     return (
@@ -77,6 +102,108 @@ export default function AccountDetailScreen() {
   const permissions = Array.from(new Set(roles.flatMap((role) => grantsByRole.get(role.name) ?? [])));
   const isSelf = me?.id === data.id;
   const canManage = hasPermission('users:update') || hasPermission('users:manage_status');
+  const canEdit = hasPermission('users:update');
+  const canManageRoles = hasPermission('users:manage_roles');
+  const canDeactivate = hasPermission('users:deactivate');
+  const isDeactivated = data.status === 'DEACTIVATED';
+  const assignableRoles = (roleCatalogue.data ?? []).filter((entry) => !roles.some((role) => role.name === entry.name));
+
+  const form = edited ?? {
+    firstName: data.firstName,
+    lastName: data.lastName,
+    phone: data.phone ?? '',
+    jobTitle: data.jobTitle ?? '',
+  };
+  const setForm = (patch: Partial<typeof form>) => setEdited({ ...form, ...patch });
+
+  const saveDetails = async () => {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      toast.error('Name is required', 'First and last name cannot be empty.');
+      return;
+    }
+    try {
+      await updateUser.mutateAsync({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim() || undefined,
+        jobTitle: form.jobTitle.trim() || undefined,
+      });
+      toast.success('Account updated', 'The change is recorded in the audit trail.');
+      setEditOpen(false);
+      setEdited(null);
+    } catch (error) {
+      toast.error('Could not save', error instanceof ApiError ? error.message : undefined);
+    }
+  };
+
+  const addRole = async () => {
+    if (!roleToGrant) {
+      toast.error('Choose a role', 'Pick the role to grant from the catalogue.');
+      return;
+    }
+    if (roleExpiry && !/^\d{4}-\d{2}-\d{2}$/.test(roleExpiry.trim())) {
+      toast.error('Invalid expiry', 'Use the format YYYY-MM-DD, or leave it empty for a permanent assignment.');
+      return;
+    }
+    try {
+      await grantRole.mutateAsync({ role: roleToGrant, expiresAt: roleExpiry.trim() ? `${roleExpiry.trim()}T23:59:59.000Z` : undefined });
+      toast.success('Role granted', `${humanize(roleToGrant)} added to ${data.firstName}'s account.`);
+      setRoleToGrant(null);
+      setRoleExpiry('');
+    } catch (error) {
+      toast.error('Could not grant the role', error instanceof ApiError ? error.message : undefined);
+    }
+  };
+
+  const removeRole = async (roleName: string, label: string) => {
+    if (roles.length <= 1) {
+      toast.error('Last role', 'An account must keep at least one role. Grant the replacement first, then remove this one.');
+      return;
+    }
+    const answer = await confirm({
+      title: `Revoke ${label}?`,
+      message: 'The account immediately loses every permission this role carries. The change is audited.',
+      confirmLabel: 'Revoke role',
+      destructive: true,
+    });
+    if (!answer.confirmed) return;
+    try {
+      await revokeRole.mutateAsync(roleName);
+      toast.success('Role revoked', `${label} removed.`);
+    } catch (error) {
+      toast.error('Could not revoke', error instanceof ApiError ? error.message : undefined);
+    }
+  };
+
+  const deactivateAccount = async () => {
+    if (isSelf) {
+      toast.error('Not allowed', 'An administrator cannot deactivate their own account.');
+      return;
+    }
+    const answer = await confirm({
+      title: `Deactivate ${data.firstName}?`,
+      message:
+        'The account is archived and every session is revoked. Nothing is erased — the history stays in the register and the account can be restored later.',
+      confirmLabel: 'Deactivate',
+      destructive: true,
+    });
+    if (!answer.confirmed) return;
+    try {
+      await deactivate.mutateAsync();
+      toast.success('Account deactivated', `${data.firstName} ${data.lastName} can no longer sign in.`);
+    } catch (error) {
+      toast.error('Could not deactivate', error instanceof ApiError ? error.message : undefined);
+    }
+  };
+
+  const restoreAccount = async () => {
+    try {
+      await restore.mutateAsync();
+      toast.success('Account restored', 'It can sign in again with its existing roles.');
+    } catch (error) {
+      toast.error('Could not restore', error instanceof ApiError ? error.message : undefined);
+    }
+  };
 
   const changeStatus = async (next: 'ACTIVE' | 'SUSPENDED') => {
     if (isSelf) {
@@ -158,6 +285,41 @@ export default function AccountDetailScreen() {
         <Definition label="Last sign-in" value={data.lastLoginAt ? `${formatDateTime(data.lastLoginAt, 'en')} (${formatRelative(data.lastLoginAt, 'en')})` : 'never'} />
       </Card>
 
+      {canEdit ? (
+        <Section title="Details">
+          <Card>
+            {editOpen ? (
+              <>
+                <Row gap={8}>
+                  <TextField label="First name" required value={form.firstName} onChangeText={(v) => setForm({ firstName: v })} style={{ flex: 1 }} />
+                  <TextField label="Last name" required value={form.lastName} onChangeText={(v) => setForm({ lastName: v })} style={{ flex: 1 }} />
+                </Row>
+                <Row gap={8}>
+                  <TextField label="Phone" value={form.phone} onChangeText={(v) => setForm({ phone: v })} keyboardType="phone-pad" placeholder="+2376…" style={{ flex: 1 }} />
+                  <TextField label="Job title" value={form.jobTitle} onChangeText={(v) => setForm({ jobTitle: v })} placeholder="Chef de poste" style={{ flex: 1 }} />
+                </Row>
+                <Row gap={8} style={{ marginTop: 8 }}>
+                  <Button label="Save changes" icon="save-outline" loading={updateUser.isPending} onPress={() => void saveDetails()} />
+                  <Button
+                    label="Cancel"
+                    variant="secondary"
+                    onPress={() => {
+                      setEditOpen(false);
+                      setEdited(null);
+                    }}
+                  />
+                </Row>
+                <Caption tone="faint" style={{ marginTop: 6 }}>
+                  The email address is the sign-in identity and is changed from the account holder's own profile.
+                </Caption>
+              </>
+            ) : (
+              <Button label="Edit details" variant="secondary" icon="create-outline" onPress={() => setEditOpen(true)} />
+            )}
+          </Card>
+        </Section>
+      ) : null}
+
       <Section title="Roles">
         <Card>
           {roles.length === 0 ? (
@@ -167,7 +329,19 @@ export default function AccountDetailScreen() {
               <View key={role.name} style={{ marginBottom: 10 }}>
                 <Row justify="space-between">
                   <Body style={{ fontWeight: '600' }}>{role.label ?? humanize(role.name)}</Body>
-                  <Badge label={`level ${role.level}`} tone="neutral" compact />
+                  <Row gap={6}>
+                    <Badge label={`level ${role.level}`} tone="neutral" compact />
+                    {canManageRoles && !isSelf ? (
+                      <Button
+                        label="Revoke"
+                        variant="ghost"
+                        size="sm"
+                        icon="close-circle-outline"
+                        loading={revokeRole.isPending}
+                        onPress={() => void removeRole(role.name, role.label ?? humanize(role.name))}
+                      />
+                    ) : null}
+                  </Row>
                 </Row>
                 <Tiny tone="faint">
                   {role.name}
@@ -177,6 +351,47 @@ export default function AccountDetailScreen() {
               </View>
             ))
           )}
+
+          {canManageRoles ? (
+            isSelf ? (
+              <Caption tone="faint" style={{ marginTop: 6 }}>
+                You cannot change the roles on your own account — ask another administrator.
+              </Caption>
+            ) : (
+              <View style={{ marginTop: 12 }}>
+                <Overline>Grant another role</Overline>
+                <SelectSheet
+                  label="Role"
+                  value={roleToGrant ?? '__none__'}
+                  options={[
+                    { value: '__none__', label: 'Choose a role' },
+                    ...assignableRoles.map((entry) => ({
+                      value: entry.name,
+                      label: `${entry.label} — ${entry.permissionCount ?? entry.permissions?.length ?? 0} permission(s)`,
+                    })),
+                  ]}
+                  onChange={(value) => setRoleToGrant(value === '__none__' ? null : value)}
+                />
+                <TextField
+                  label="Expires on (optional)"
+                  value={roleExpiry}
+                  onChangeText={setRoleExpiry}
+                  placeholder="YYYY-MM-DD — leave empty for a permanent role"
+                  autoCapitalize="none"
+                />
+                <Button
+                  label="Grant role"
+                  icon="shield-checkmark-outline"
+                  loading={grantRole.isPending}
+                  disabled={!roleToGrant}
+                  onPress={() => void addRole()}
+                />
+                <Caption tone="faint" style={{ marginTop: 6 }}>
+                  Granting the Administrator role requires full access yourself. An account must always keep at least one role.
+                </Caption>
+              </View>
+            )
+          ) : null}
         </Card>
       </Section>
 
@@ -204,7 +419,25 @@ export default function AccountDetailScreen() {
               <Button label="Reactivate account" icon="play-circle-outline" loading={setStatus.isPending} disabled={isSelf} onPress={() => void changeStatus('ACTIVE')} />
             )}
             <Button label="Reset password" variant="secondary" icon="key-outline" loading={resetPassword.isPending} onPress={() => void reset()} />
+            {canDeactivate && !isDeactivated ? (
+              <Button
+                label="Deactivate account"
+                variant="danger"
+                icon="person-remove-outline"
+                loading={deactivate.isPending}
+                disabled={isSelf}
+                onPress={() => void deactivateAccount()}
+              />
+            ) : null}
+            {isDeactivated && canEdit ? (
+              <Button label="Restore account" icon="person-add-outline" loading={restore.isPending} onPress={() => void restoreAccount()} />
+            ) : null}
           </Row>
+          {isDeactivated ? (
+            <Caption tone="muted" style={{ marginTop: 6 }}>
+              This account is deactivated: its sessions were revoked and it cannot sign in. Restoring it brings back its existing roles.
+            </Caption>
+          ) : null}
           {isSelf ? (
             <Caption tone="faint" style={{ marginTop: 6 }}>
               Suspending is disabled on your own account — ask another administrator.

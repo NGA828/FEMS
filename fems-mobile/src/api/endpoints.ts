@@ -188,6 +188,28 @@ export const usersApi = {
     api.post<DirectoryUser>(`/users/${id}/status`, { status, reason }).then((r) => r.data),
   resetPassword: (id: string, newPassword?: string) =>
     api.post<{ temporaryPassword?: string; message: string }>(`/users/${id}/reset-password`, newPassword ? { newPassword } : {}).then((r) => r.data),
+
+  /** Grant a role; `expiresAt` makes the assignment temporary. */
+  grantRole: (id: string, role: string, expiresAt?: string) =>
+    api.post<DirectoryUser>(`/users/${id}/roles`, expiresAt ? { role, expiresAt } : { role }).then((r) => r.data),
+  /** Revoke a role. The API refuses to remove the account's last remaining role. */
+  revokeRole: (id: string, roleName: string) =>
+    api.delete<DirectoryUser>(`/users/${id}/roles/${roleName}`).then((r) => r.data),
+  /** Soft-delete: the account is deactivated and all its sessions are revoked. */
+  deactivate: (id: string) => api.delete<{ message: string }>(`/users/${id}`).then((r) => r.data),
+  restore: (id: string) => api.post<DirectoryUser>(`/users/${id}/restore`).then((r) => r.data),
+
+  statistics: () =>
+    api
+      .get<{
+        total: number;
+        byStatus: { active: number; pendingVerification: number; suspended: number };
+        byRole: { role: string; label: string; count: number }[];
+        withCompany: number;
+        environment: string;
+      }>('/users/statistics')
+      .then((r) => r.data),
+
   roles: () => api.get<CatalogueEntry[]>('/roles/catalogue').then((r) => r.data),
   roleList: () => api.get<RoleSummary[]>('/roles').then((r) => r.data),
 };

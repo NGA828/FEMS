@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ApiError } from '../../../src/api/client';
 import type { DirectoryUser, RoleName, UserStatus } from '../../../src/api/types';
-import { useCompanies, useCreateUser, useRoles, useUsers } from '../../../src/api/queries';
+import { useCompanies, useCreateUser, useRoles, useUserStatistics, useUsers } from '../../../src/api/queries';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatRelative, humanize, userStatusLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
@@ -70,6 +70,8 @@ export default function UserDirectoryScreen() {
     [status, roleFilter],
   );
   const users = useUsers(query);
+  // Register-wide counts, not just the page in hand.
+  const stats = useUserStatistics();
   const create = useCreateUser();
 
   const items = users.data?.items ?? [];
@@ -143,9 +145,20 @@ export default function UserDirectoryScreen() {
       />
 
       <Row gap={8} wrap style={{ marginBottom: 12 }}>
-        <StatTile label="Accounts" value={users.data?.meta?.total ?? items.length} icon="people-outline" />
-        <StatTile label="Active" value={items.filter((user: DirectoryUser) => user.status === 'ACTIVE').length} icon="checkmark-circle-outline" tone="success" />
-        <StatTile label="Suspended" value={items.filter((user: DirectoryUser) => user.status === 'SUSPENDED').length} icon="pause-circle-outline" tone="danger" />
+        <StatTile label="Accounts" value={stats.data?.total ?? users.data?.meta?.total ?? items.length} icon="people-outline" />
+        <StatTile
+          label="Active"
+          value={stats.data?.byStatus.active ?? items.filter((user: DirectoryUser) => user.status === 'ACTIVE').length}
+          icon="checkmark-circle-outline"
+          tone="success"
+        />
+        <StatTile
+          label="Suspended"
+          value={stats.data?.byStatus.suspended ?? items.filter((user: DirectoryUser) => user.status === 'SUSPENDED').length}
+          icon="pause-circle-outline"
+          tone="danger"
+        />
+        <StatTile label="Awaiting verification" value={stats.data?.byStatus.pendingVerification ?? 0} icon="mail-unread-outline" tone="warning" />
         <StatTile label="Roles" value={roles.data?.length ?? 0} icon="shield-outline" />
       </Row>
 

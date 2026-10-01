@@ -105,6 +105,7 @@ export const queryKeys = {
   companyStatistics: ['companies', 'statistics'] as const,
   users: (query?: unknown) => ['users', query] as const,
   user: (id: string) => ['user', id] as const,
+  userStatistics: ['users', 'statistics'] as const,
   roles: ['roles'] as const,
   roleList: ['roles', 'list'] as const,
   audit: (query?: unknown) => ['audit', query] as const,
@@ -854,7 +855,7 @@ export function useCreateUser() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) => usersApi.create(payload),
-    onSuccess: () => invalidate(client, [queryKeys.users()]),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.userStatistics]),
   });
 }
 
@@ -862,7 +863,7 @@ export function useSetUserStatus() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; status: string; reason?: string }) => usersApi.setStatus(input.id, input.status, input.reason),
-    onSuccess: (_data, variables) => invalidate(client, [queryKeys.users(), queryKeys.user(variables.id)]),
+    onSuccess: (_data, variables) => invalidate(client, [queryKeys.users(), queryKeys.user(variables.id), queryKeys.userStatistics]),
   });
 }
 
@@ -871,6 +872,52 @@ export function useResetUserPassword() {
   return useMutation({
     mutationFn: (input: { id: string; newPassword?: string }) => usersApi.resetPassword(input.id, input.newPassword),
     onSuccess: () => invalidate(client, [queryKeys.users()]),
+  });
+}
+
+export function useUserStatistics(enabled = true) {
+  return useQuery({ queryKey: queryKeys.userStatistics, queryFn: usersApi.statistics, staleTime: 60_000, enabled });
+}
+
+export function useUpdateUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => usersApi.update(id, payload),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+/** Grant a role to an account (`expiresAt` makes it a temporary assignment). */
+export function useGrantUserRole(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { role: string; expiresAt?: string }) => usersApi.grantRole(id, input.role, input.expiresAt),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+export function useRevokeUserRole(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (roleName: string) => usersApi.revokeRole(id, roleName),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+/** Soft-delete an account: it is deactivated and every session is revoked. */
+export function useDeactivateUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => usersApi.deactivate(id),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
+  });
+}
+
+export function useRestoreUser(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => usersApi.restore(id),
+    onSuccess: () => invalidate(client, [queryKeys.users(), queryKeys.user(id), queryKeys.userStatistics]),
   });
 }
 
