@@ -101,3 +101,46 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 5. Other defined-but-unenforced permissions: `exploitation:assign`,
    `inspections:assign` (no reassignment route), `companies:export_document`,
    `ai:settings_manage`, `forests:manage`.
+
+---
+
+## Is the diagram the whole picture? No — three different lists
+
+The use-case diagram describes **26 use cases**. The system exposes **181 REST
+routes across 20 controllers** and **53 mobile screens**. So "what is missing"
+splits into three categories, and only the first one is visible on the diagram.
+
+### A. Missing *inside* the diagram (3)
+`download permit`, `download approved permit`, and a thin
+`monitor system performance` — detailed above.
+
+### B. Missing *outside* the diagram
+A use-case diagram cannot express infrastructure, so these do not appear on it
+at all (full detail in [IMPLEMENTATION-GAPS.md](./IMPLEMENTATION-GAPS.md)):
+push notifications never register a device token, `SystemSetting` has no write
+API, the S3 storage driver is config-only, `FieldSession` has no runtime API,
+offline sync covers only activities and observations, no SMS channel, UI chrome
+is English-only, no web admin portal, no CI, no Dockerfile, thin e2e coverage.
+
+### C. Implemented *beyond* the diagram
+The build is considerably larger than the diagram. None of the following appear
+as use cases, yet all are working features:
+
+| Area | What exists beyond the diagram |
+|---|---|
+| Roles | Two actors the diagram omits: **`FOREST_INSPECTOR`** and **`FIELD_OPERATOR`**, each with their own permission set and screens |
+| Payments | The diagram only has *view payment history*; the code initiates payments, verifies them server-side, refunds, issues receipt data, handles the Campay webhook and exposes provider status |
+| Inspections | Full lifecycle (schedule → start with GPS → checklist → submit → review → close → cancel), evidence attachments, verified volume vs. declared volume |
+| Environmental cases | Violation case file with severity, penalty computation, remediation deadlines, resolution/dismissal actions and an overdue sweep (cron) |
+| Field work | Offline capture queue with idempotent replay, GPS check-ins with accuracy/mock-location rejection, field observations, equipment registry and usage |
+| AI | Not just *receive alert*: a conversational assistant with history, on-demand analyses, an alert review workflow (confirm/dismiss/escalate) and a daily risk sweep |
+| Permits | State machine with 14 actions, timeline, renewal, documents + verification, expiry warnings (cron), fee/royalty computation |
+| Companies | Registration verification, suspension, document upload and verification |
+| Reference data | Tree species, tree inventory, protected areas, forest zones (full CRUD on the API) |
+| Accounts | Email verification, password reset, session list/revocation, device tokens, notification preferences per event type |
+| Reporting | 8 report types in JSON/CSV/PDF with preview, catalogue, statistics and distribution to officers/companies |
+| Oversight | Full audit trail with summary analytics, notification centre, media library, integration status (`/system/integrations`) |
+
+**Conclusion:** the diagram is a *subset* of the system, not a specification of
+it. Closing the three items in §A completes the diagram; the items in §B are
+what actually stands between this build and a production deployment.
