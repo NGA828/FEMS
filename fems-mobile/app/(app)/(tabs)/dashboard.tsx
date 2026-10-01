@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { canRead } from '../../../src/auth/permissions';
-import { roleContext, tabsFor } from '../../../src/navigation/tabs';
+import { primaryRoleSummary, roleContext, tabsFor } from '../../../src/navigation/tabs';
 import {
   useActivityStatistics,
   useAlertStatistics,
@@ -99,6 +99,9 @@ export default function DashboardScreen() {
   const mayReadExploitation = canRead(permissions, 'exploitation');
   const mayReadForests = canRead(permissions, 'forests');
   const mayReadGis = canRead(permissions, 'gis');
+  const mayManageUsers = hasPermission('users:read');
+  const mayReadAudit = hasPermission('audit:read');
+  const mayReadCompanies = hasPermission('companies:read');
 
   const permitStats = usePermitStatistics();
   const paymentStats = usePaymentStatistics();
@@ -141,7 +144,7 @@ export default function DashboardScreen() {
 
   const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 18 ? 'Good afternoon' : 'Good evening';
 
-  const roleLabel = user?.roles?.[0]?.label ?? 'User';
+  const roleLabel = primaryRoleSummary(user)?.label ?? 'User';
   const tabs = tabsFor(user);
 
   return (
@@ -202,6 +205,34 @@ export default function DashboardScreen() {
           ) : null}
         </Row>
       </Section>
+
+      {/* ------------------------------------------------------- administration */}
+      {mayManageUsers || mayReadAudit || context.isAdministrator ? (
+        <Section title="Administration">
+          <Row gap={10} wrap>
+            {mayManageUsers ? (
+              <Button label="User accounts" icon="people-outline" size="sm" onPress={() => router.push('/user')} />
+            ) : null}
+            {mayManageUsers ? (
+              <Button
+                label="Create account"
+                icon="person-add-outline"
+                size="sm"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/user', params: { create: '1' } })}
+              />
+            ) : null}
+            {mayReadAudit ? (
+              <Button label="Audit trail" icon="list-outline" size="sm" variant="secondary" onPress={() => router.push('/audit')} />
+            ) : null}
+            {mayReadCompanies ? (
+              <Button label="Companies" icon="business-outline" size="sm" variant="secondary" onPress={() => router.push('/company')} />
+            ) : null}
+            <Button label="System settings" icon="settings-outline" size="sm" variant="ghost" onPress={() => router.push('/settings')} />
+            <Button label="All modules" icon="ellipsis-horizontal" size="sm" variant="ghost" onPress={() => router.push('/modules')} />
+          </Row>
+        </Section>
+      ) : null}
 
       {/* --------------------------------------------------------------- tiles */}
       <Section title={context.isPublicAccount ? 'Forest resources' : 'Operational picture'}>

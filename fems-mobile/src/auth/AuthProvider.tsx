@@ -13,6 +13,7 @@ import { AppState } from 'react-native';
 import { ApiError, type TokenBundle } from '../api/client';
 import { api } from '../api/client-instance';
 import { authApi } from '../api/endpoints';
+import { primaryRoleName } from '../navigation/tabs';
 import type { AuthUser, DirectoryUser } from '../api/types';
 import { tokenStore } from './token-store';
 
@@ -160,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       status,
       permissions,
       roles,
-      primaryRole: roles[0] ?? null,
+      primaryRole: primaryRoleName(user) ?? roles[0] ?? null,
       companyId: user?.company?.id ?? null,
       isCompanyAccount: Boolean(user?.company?.id) && !permissions.includes('*'),
       hasPermission,

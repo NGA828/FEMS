@@ -251,10 +251,45 @@ export function Notice({
       {icon ? <View style={{ paddingTop: 1 }}>{icon}</View> : null}
       <View style={{ flex: 1, gap: 2 }}>
         {title ? <Body style={{ color: palette.fg, fontWeight: '700' }}>{title}</Body> : null}
-        {typeof children === 'string' ? <Caption style={{ color: palette.fg }}>{children}</Caption> : children}
+        {wrapLooseText(children, { color: palette.fg })}
       </View>
     </View>
   );
+}
+
+/**
+ * React Native refuses a raw string inside a <View>. Callers naturally write
+ * `<Notice>{amount} must be settled.</Notice>`, which React hands over as an
+ * array of text fragments — so wrap every run of adjacent text in a single
+ * <Caption> instead of only handling the lone-string case.
+ */
+function wrapLooseText(children: React.ReactNode, style: { color: string }): React.ReactNode {
+  const nodes = React.Children.toArray(children);
+  if (nodes.length === 0) return null;
+
+  const output: React.ReactNode[] = [];
+  let run: React.ReactNode[] = [];
+
+  const flush = () => {
+    if (run.length === 0) return;
+    output.push(
+      <Caption key={`text-${output.length}`} style={style}>
+        {run}
+      </Caption>,
+    );
+    run = [];
+  };
+
+  for (const node of nodes) {
+    if (typeof node === 'string' || typeof node === 'number') run.push(node);
+    else {
+      flush();
+      output.push(node);
+    }
+  }
+  flush();
+
+  return output.length === 1 ? output[0] : output;
 }
 
 /** Page header with optional back action and right-hand controls. */

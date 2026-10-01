@@ -9,7 +9,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ApiError } from '../../../src/api/client';
 import type { DirectoryUser, RoleName, UserStatus } from '../../../src/api/types';
 import { useCompanies, useCreateUser, useRoles, useUsers } from '../../../src/api/queries';
@@ -47,11 +47,13 @@ export default function UserDirectoryScreen() {
   const router = useRouter();
   const toast = useToast();
   const { hasPermission } = useAuth();
+  // `/user?create=1` (the dashboard shortcut) opens the invitation form directly.
+  const params = useLocalSearchParams<{ create?: string }>();
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<UserStatus | 'ALL'>('ALL');
   const [roleFilter, setRoleFilter] = useState<RoleName | 'ALL'>('ALL');
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(params.create === '1');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');

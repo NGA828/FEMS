@@ -67,7 +67,7 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 
 | Use case | Status | Where |
 |---|---|---|
-| Manage user account | ✅ | `/users` CRUD, roles, status, password reset → `user/index`, `user/[id]` |
+| Manage user account | ✅ | `/users` CRUD, roles, status, password reset → `user/index`, `user/[id]`. **Was unreachable until 2026-10-01**: the app's role vocabulary said `ADMIN`/`SUPER_ADMIN` while the API emits `ADMINISTRATOR`, so administrators fell through to the visitor navigation. Fixed, plus an Administration block on the dashboard. |
 | **Monitor system performance** | ⚠️ | `GET /health` (DB up/latency/uptime), `GET /audit/summary`, `GET /system/integrations` (new). **Missing:** request throughput, error rates, slow-query/latency history, cron-job outcomes, storage usage. The permissions `system:monitor` and `system:health` are defined but enforced by no route. |
 
 ## External systems

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { canRead } from '../../src/auth/permissions';
 import { useAlerts } from '../../src/api/queries';
+import { primaryRoleSummary } from '../../src/navigation/tabs';
 import { useTheme } from '../../src/theme/theme';
 import { Badge, Body, Caption, Card, Overline, Row, Section, Title } from '../../src/ui';
 
@@ -224,7 +225,7 @@ export default function ModulesScreen() {
     >
       <Title style={{ marginBottom: 4 }}>All modules</Title>
       <Caption tone="muted" style={{ marginBottom: 18 }}>
-        {user?.roles?.[0]?.label ?? 'Your role'} · every screen below is wired to the live FEMS API.
+        {primaryRoleSummary(user)?.label ?? 'Your role'} · every screen below is wired to the live FEMS API.
       </Caption>
 
       {MODULES.map((group) => {

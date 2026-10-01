@@ -23,16 +23,21 @@ export interface PaginationMeta {
 
 // ------------------------------------------------------------------- identity
 
+/**
+ * The eight roles of the server catalogue (`ROLE_NAMES` in
+ * fems-backend/src/common/constants/permissions.ts). These strings must match
+ * the API exactly: the app keys its navigation off them, and a name the server
+ * never emits silently downgrades an account to the visitor experience.
+ */
 export type RoleName =
-  | 'SUPER_ADMIN'
-  | 'ADMIN'
+  | 'VISITOR'
+  | 'FOREST_EXPLORER'
+  | 'COMPANY_REPRESENTATIVE'
   | 'GOVERNMENT_FOREST_OFFICER'
   | 'ENVIRONMENTAL_OFFICER'
   | 'FOREST_INSPECTOR'
   | 'FIELD_OPERATOR'
-  | 'COMPANY_REPRESENTATIVE'
-  | 'FOREST_EXPLORER'
-  | 'VISITOR';
+  | 'ADMINISTRATOR';
 
 export type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
