@@ -41,6 +41,8 @@ import type {
   HealthStatus,
   IntegrationReport,
   IntegrationsPayload,
+  SystemMetrics,
+  SystemHealthReport,
   MailTestResult,
   Inspection,
   InspectionStatistics,
@@ -330,6 +332,8 @@ export const permitsApi = {
     api.post<PermitDocument>(`/permits/${id}/documents`, payload).then((r) => r.data),
   verifyDocument: (id: string, documentId: string, payload: { isVerified: boolean; notes?: string }) =>
     api.patch<PermitDocument>(`/permits/${id}/documents/${documentId}/verify`, payload).then((r) => r.data),
+  /** Printable permit certificate (PDF) — fetched with the bearer token, never a plain link. */
+  downloadPath: (id: string) => `/permits/${id}/download`,
 };
 
 // ---------------------------------------------------------------- exploitation
@@ -440,6 +444,8 @@ export const paymentsApi = {
   simulate: (id: string, outcome: 'SUCCESSFUL' | 'FAILED' | 'CANCELLED', notes?: string) =>
     api.post<Payment>(`/payments/${id}/simulate`, { outcome, notes }).then((r) => r.data),
   refund: (id: string, reason: string) => api.post<Payment>(`/payments/${id}/refund`, { reason }).then((r) => r.data),
+  /** The same receipt as a printable PDF. */
+  receiptPdfPath: (id: string) => `/payments/${id}/receipt/pdf`,
 };
 
 // ----------------------------------------------------------------- inspections
@@ -745,6 +751,12 @@ export const systemApi = {
 
   mailStatus: (probe = true) =>
     api.get<IntegrationReport>('/system/integrations/mail', { params: { probe }, timeoutMs: 30_000 }).then((r) => r.data),
+
+  /** Runtime performance: throughput, error rates, slow routes, jobs, storage. */
+  metrics: () => api.get<SystemMetrics>('/system/metrics', { timeoutMs: 20_000 }).then((r) => r.data),
+
+  /** Component-by-component health verdict for administrators. */
+  health: () => api.get<SystemHealthReport>('/system/health', { timeoutMs: 20_000 }).then((r) => r.data),
 
   /** Sends a real message through the server's SMTP transport (admin only). */
   sendTestEmail: (to?: string) =>

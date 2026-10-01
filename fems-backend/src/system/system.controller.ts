@@ -31,6 +31,29 @@ export class SystemController {
     return this.system.integrations(query.probe ?? true);
   }
 
+  @Get('metrics')
+  @RequireAnyPermission('system:monitor', 'settings:manage')
+  @ApiOperation({
+    summary: 'Runtime performance of this deployment',
+    description:
+      'Measured, not assumed: request throughput and error rates per minute, the busiest and slowest routes, the outcome of every scheduled job, database latency, storage consumption and the 24-hour workload. ' +
+      'The request counters live in the process memory, so `process.startedAt` states when counting began.',
+  })
+  metrics() {
+    return this.system.metricsReport();
+  }
+
+  @Get('health')
+  @RequireAnyPermission('system:health', 'system:monitor', 'settings:manage')
+  @ApiOperation({
+    summary: 'Component-by-component health for administrators',
+    description:
+      'Unlike the public `/health` probe this reports the degraded states an administrator must act on — unreachable SMTP, a scheduled job that failed on its last run, a disk nearly full — and rolls them into one OK / DEGRADED / FAILING verdict.',
+  })
+  health() {
+    return this.system.healthReport();
+  }
+
   @Get('integrations/mail')
   @RequireAnyPermission('settings:read', 'settings:manage')
   @ApiOperation({

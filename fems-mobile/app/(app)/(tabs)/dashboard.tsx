@@ -102,6 +102,7 @@ export default function DashboardScreen() {
   const mayManageUsers = hasPermission('users:read');
   const mayReadAudit = hasPermission('audit:read');
   const mayReadCompanies = hasPermission('companies:read');
+  const mayMonitorSystem = hasPermission('system:monitor') || hasPermission('system:health') || hasPermission('settings:manage');
 
   const permitStats = usePermitStatistics();
   const paymentStats = usePaymentStatistics();
@@ -227,6 +228,9 @@ export default function DashboardScreen() {
             ) : null}
             {mayReadCompanies ? (
               <Button label="Companies" icon="business-outline" size="sm" variant="secondary" onPress={() => router.push('/company')} />
+            ) : null}
+            {mayMonitorSystem ? (
+              <Button label="System monitoring" icon="pulse-outline" size="sm" variant="secondary" onPress={() => router.push('/settings/monitoring')} />
             ) : null}
             <Button label="System settings" icon="settings-outline" size="sm" variant="ghost" onPress={() => router.push('/settings')} />
             <Button label="All modules" icon="ellipsis-horizontal" size="sm" variant="ghost" onPress={() => router.push('/modules')} />

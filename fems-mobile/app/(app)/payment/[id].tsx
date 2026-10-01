@@ -7,7 +7,7 @@
  * "simulate" control appears only when the backend reports the sandbox provider,
  * and it is labelled as such — it is never presented as a real collection.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,6 +21,8 @@ import {
   useSimulatePayment,
   useVerifyPayment,
 } from '../../../src/api/queries';
+import { paymentsApi } from '../../../src/api/endpoints';
+import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
@@ -66,6 +68,21 @@ export default function PaymentDetailScreen() {
   const sandbox = provider.data?.provider === 'SIMULATOR';
   const canVerify = hasPermission('payments:verify');
   const canRefund = hasPermission('payments:refund') || hasPermission('payments:update');
+  const canDownloadReceipt = hasPermission('payments:download_receipt');
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+
+  /** The PDF is rendered server-side from the same data this card shows. */
+  const downloadReceipt = async () => {
+    if (!receipt.data) return;
+    setDownloadingReceipt(true);
+    try {
+      const result = await downloadAuthenticatedFile(paymentsApi.receiptPdfPath(id as string), `${receipt.data.receiptNumber}.pdf`);
+      if (result.saved) toast.success('Receipt downloaded', result.reason ?? `${receipt.data.receiptNumber}.pdf`);
+      else toast.error('Download failed', result.reason);
+    } finally {
+      setDownloadingReceipt(false);
+    }
+  };
   const pending = data?.status === 'PENDING' || data?.status === 'PROCESSING';
 
   if (payment.isLoading) {
@@ -218,6 +235,17 @@ export default function PaymentDetailScreen() {
               <View style={{ marginTop: 10 }}>
                 <Badge label="sandbox receipt — no funds moved" tone="warning" icon="flask-outline" />
               </View>
+            ) : null}
+            {canDownloadReceipt ? (
+              <Row gap={8} style={{ marginTop: 12 }}>
+                <Button
+                  label={downloadingReceipt ? 'Preparing the PDF…' : 'Download the receipt'}
+                  variant="secondary"
+                  icon="download-outline"
+                  loading={downloadingReceipt}
+                  onPress={() => void downloadReceipt()}
+                />
+              </Row>
             ) : null}
           </Card>
         </Section>

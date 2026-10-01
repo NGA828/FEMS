@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { PermitsService } from './permits.service';
 import {
   CreatePermitDocumentDto,
@@ -86,6 +87,23 @@ export class PermitsController {
   @ApiOperation({ summary: 'Permit detail with documents, timeline, payments and available actions' })
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.permits.findOne(user, id);
+  }
+
+  @Get(':id/download')
+  @RequirePermissions('permits:download')
+  @ApiProduces('application/pdf')
+  @ApiOperation({
+    summary: 'Download the permit certificate as a PDF',
+    description:
+      'Renders the printable instrument from the live permit row: holder, authorised volume and dates, fees settled, conditions, decision history and a verification code. ' +
+      'A permit that is not in force (draft, suspended, revoked, expired) is stamped as not valid rather than refused, so the record can still be filed. Every download is audited.',
+  })
+  async download(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Res() response: Response) {
+    const certificate = await this.permits.certificate(user, id);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${certificate.fileName}"`);
+    response.setHeader('Content-Length', String(certificate.buffer.length));
+    response.end(certificate.buffer);
   }
 
   @Patch(':id')

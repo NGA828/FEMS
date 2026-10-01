@@ -5,6 +5,7 @@ import { PERMISSIONS_KEY, PERMISSIONS_ANY_KEY, type AuthenticatedUser } from '..
 import type { AuditService } from '../audit/audit.service';
 import type { MailService } from '../mail/mail.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 
 /**
  * Integration reporting.
@@ -45,7 +46,7 @@ function buildService(mail: Partial<MailService>, databaseUp = true) {
   const prisma = {
     $queryRaw: databaseUp ? jest.fn().mockResolvedValue([{ 1: 1 }]) : jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
   } as unknown as PrismaService;
-  const service = new SystemService(mail as MailService, prisma, audit);
+  const service = new SystemService(mail as MailService, prisma, audit, new MetricsService());
   return { service, audit, prisma };
 }
 

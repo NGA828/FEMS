@@ -113,6 +113,8 @@ export const queryKeys = {
   sessions: ['auth', 'sessions'] as const,
   notificationPreferences: ['auth', 'notification-preferences'] as const,
   integrations: (probe: boolean) => ['system', 'integrations', probe] as const,
+  systemMetrics: ['system', 'metrics'] as const,
+  systemHealth: ['system', 'health'] as const,
 };
 
 /** Invalidates every query under the given prefixes after a mutation. */
@@ -1022,6 +1024,33 @@ export function useIntegrations(probe = true, enabled = true) {
     queryFn: () => systemApi.integrations(probe),
     enabled,
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
+
+/**
+ * Runtime performance of the API process. Polled while the monitoring screen is
+ * open — the counters are in-memory on the server, so there is nothing to cache.
+ */
+export function useSystemMetrics(enabled = true, refetchMs = 15_000) {
+  return useQuery({
+    queryKey: queryKeys.systemMetrics,
+    queryFn: systemApi.metrics,
+    enabled,
+    refetchInterval: enabled ? refetchMs : false,
+    staleTime: 5_000,
+    retry: false,
+  });
+}
+
+/** Component-by-component health verdict (system:health). */
+export function useSystemHealth(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.systemHealth,
+    queryFn: systemApi.health,
+    enabled,
+    staleTime: 15_000,
     refetchOnWindowFocus: false,
     retry: false,
   });

@@ -198,6 +198,13 @@ const MODULES: { group: string; entries: ModuleEntry[] }[] = [
         permissions: ['audit:read'],
       },
       {
+        label: 'System monitoring',
+        description: 'Throughput, failures, scheduled jobs, storage and health',
+        icon: 'pulse-outline',
+        route: '/settings/monitoring',
+        permissions: ['system:monitor', 'system:health', 'settings:manage'],
+      },
+      {
         label: 'Settings',
         description: 'Profile, notifications and app preferences',
         icon: 'settings-outline',

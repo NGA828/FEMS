@@ -21,6 +21,7 @@ import {
   RiskLevel,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GisService } from '../gis/gis.service';
@@ -122,7 +123,10 @@ export class AiService {
     private readonly notifications: NotificationsService,
     private readonly gis: GisService,
     private readonly gemini: GeminiClient,
-  ) {}
+    private readonly metrics: MetricsService,
+  ) {
+    this.metrics.declareJob('ai-risk-sweep');
+  }
 
   // ------------------------------------------------------------------- status
 
@@ -963,6 +967,10 @@ export class AiService {
    * raised for findings that are not already awaiting review.
    */
   @Cron('0 4 * * *', { name: 'ai-risk-sweep' })
+  async scheduledRiskSweepJob(): Promise<void> {
+    await this.metrics.track('ai-risk-sweep', () => this.scheduledRiskSweep());
+  }
+
   async scheduledRiskSweep(): Promise<void> {
     if (!appConfig().ai.riskScheduleEnabled) {
       this.logger.log('Scheduled AI risk sweep is disabled by AI_RISK_SCHEDULE_ENABLED.');

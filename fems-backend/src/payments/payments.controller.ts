@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Query, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiProduces, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { PaymentsService } from './payments.service';
 import {
   CampayWebhookDto,
@@ -71,6 +72,22 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Receipt data for a settled payment' })
   receipt(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.payments.receipt(user, id);
+  }
+
+  @Get(':id/receipt/pdf')
+  @RequirePermissions('payments:download_receipt')
+  @ApiProduces('application/pdf')
+  @ApiOperation({
+    summary: 'Download the receipt of a settled payment as a PDF',
+    description:
+      'The printable receipt built from the same data as `GET /payments/:id/receipt`. Sandbox settlements are stamped as such so a simulated payment can never pass for proof of payment. Audited as an export.',
+  })
+  async receiptPdf(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Res() response: Response) {
+    const receipt = await this.payments.receiptPdf(user, id);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${receipt.fileName}"`);
+    response.setHeader('Content-Length', String(receipt.buffer.length));
+    response.end(receipt.buffer);
   }
 
   @Post(':id/verify')

@@ -28,6 +28,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard, RolesGuard } from './common/guards/roles-permissions.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { MetricsModule } from './common/metrics/metrics.module';
+import { MetricsInterceptor } from './common/metrics/metrics.interceptor';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 
 /**
@@ -49,6 +51,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
       },
     ]),
     ScheduleModule.forRoot(),
+    MetricsModule,
     PrismaModule,
     MailModule,
     RbacModule,
@@ -77,6 +80,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
     { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
   ],

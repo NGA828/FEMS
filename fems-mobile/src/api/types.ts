@@ -1368,6 +1368,66 @@ export interface IntegrationsPayload {
   integrations: IntegrationReport[];
 }
 
+export interface SystemMetrics {
+  checkedAt: IsoDate;
+  environment: string;
+  process: {
+    startedAt: IsoDate;
+    uptimeSeconds: number;
+    nodeVersion: string;
+    pid: number;
+    memory: { rssMb: number; heapUsedMb: number; heapTotalMb: number };
+  };
+  requests: {
+    total: number;
+    errors: number;
+    clientErrors: number;
+    serverErrors: number;
+    errorRate: number;
+    averageMs: number;
+    inFlight: number;
+    perMinute: { minute: string; requests: number; errors: number; averageMs: number }[];
+    throughputPerMinute: number;
+  };
+  routes: { route: string; count: number; errors: number; averageMs: number; maxMs: number }[];
+  slowest: { route: string; ms: number; status: number; at: IsoDate }[];
+  jobs: {
+    name: string;
+    runs: number;
+    failures: number;
+    lastRun: { status: 'SUCCESS' | 'FAILED'; startedAt: IsoDate; finishedAt: IsoDate; durationMs: number; message: string | null } | null;
+    history: { status: 'SUCCESS' | 'FAILED'; startedAt: IsoDate; finishedAt: IsoDate; durationMs: number; message: string | null }[];
+  }[];
+  database: { reachable: boolean; latencyMs: number; error: string | null };
+  storage: {
+    directory: string;
+    driver: string;
+    files: number;
+    totalMb: number;
+    byKind: { key: string; files: number; bytes: number; mb: number }[];
+    diskFreePercent: number | null;
+    diskFreeMb: number | null;
+    diskTotalMb: number | null;
+  };
+  workload: {
+    windowHours: number;
+    auditedActions: number;
+    logins: number;
+    failedLogins: number;
+    notificationsCreated: number;
+    activeSessions: number;
+  };
+}
+
+export type ComponentHealth = 'OK' | 'DEGRADED' | 'FAILING';
+
+export interface SystemHealthReport {
+  checkedAt: IsoDate;
+  status: ComponentHealth;
+  environment: string;
+  components: { key: string; label: string; status: ComponentHealth; detail: string }[];
+}
+
 export interface MailTestResult {
   recipient: string;
   status: 'SENT' | 'NOT_CONFIGURED' | 'FAILED';

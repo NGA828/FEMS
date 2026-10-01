@@ -1,9 +1,11 @@
+import { statfs } from 'node:fs/promises';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AuditAction, AuditSeverity } from '@prisma/client';
 import { appConfig } from '../config/configuration';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 import type { AuthenticatedUser } from '../common/decorators';
 
 export type IntegrationState = 'READY' | 'DISABLED' | 'MISCONFIGURED' | 'UNREACHABLE';
@@ -34,6 +36,7 @@ export class SystemService {
     private readonly mail: MailService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -109,6 +112,175 @@ export class SystemService {
           ? `Test email accepted by ${transport.host} for ${recipient}. Check the inbox (and the spam folder).`
           : `The SMTP server refused the message: ${result.error ?? 'unknown error'}`,
     };
+  }
+
+  // ---------------------------------------------------------------- monitoring
+
+  /**
+   * Runtime performance of this deployment.
+   *
+   * Everything here is measured, never assumed: request throughput and error
+   * rates come from the interceptor, job outcomes from the scheduler wrapper,
+   * database latency from a real query, storage from the files actually
+   * recorded and the disk they sit on. The counters are in-memory, so `since`
+   * states when this process started counting.
+   */
+  async metricsReport() {
+    const config = appConfig();
+    const snapshot = this.metrics.snapshot();
+    const [database, storage, workload] = await Promise.all([this.databaseLatency(), this.storageUsage(), this.workload()]);
+    const memory = process.memoryUsage();
+
+    return {
+      checkedAt: new Date().toISOString(),
+      environment: config.env,
+      process: {
+        startedAt: snapshot.since,
+        uptimeSeconds: snapshot.uptimeSeconds,
+        nodeVersion: process.version,
+        pid: process.pid,
+        memory: {
+          rssMb: Number((memory.rss / 1024 / 1024).toFixed(1)),
+          heapUsedMb: Number((memory.heapUsed / 1024 / 1024).toFixed(1)),
+          heapTotalMb: Number((memory.heapTotal / 1024 / 1024).toFixed(1)),
+        },
+      },
+      requests: snapshot.requests,
+      routes: snapshot.routes,
+      slowest: snapshot.slowest,
+      jobs: snapshot.jobs,
+      database,
+      storage,
+      workload,
+    };
+  }
+
+  /**
+   * Component-by-component health, for the `system:health` gate. Unlike the
+   * public `/health` probe this reports the degraded cases an administrator has
+   * to act on — a failing scheduled job, a disk nearly full, unreachable SMTP.
+   */
+  async healthReport() {
+    const [integrations, metrics] = await Promise.all([this.integrations(false), this.metricsReport()]);
+    const components: Array<{ key: string; label: string; status: 'OK' | 'DEGRADED' | 'FAILING'; detail: string }> = [];
+
+    for (const integration of integrations.integrations) {
+      components.push({
+        key: integration.key,
+        label: integration.label,
+        status: integration.state === 'READY' || integration.state === 'DISABLED' ? 'OK' : integration.state === 'UNREACHABLE' ? 'FAILING' : 'DEGRADED',
+        detail: integration.summary,
+      });
+    }
+
+    const failedJobs = metrics.jobs.filter((job) => job.lastRun?.status === 'FAILED');
+    components.push({
+      key: 'jobs',
+      label: 'Scheduled jobs',
+      status: failedJobs.length > 0 ? 'FAILING' : 'OK',
+      detail:
+        failedJobs.length > 0
+          ? `${failedJobs.map((job) => job.name).join(', ')} failed on the last run.`
+          : `${metrics.jobs.length} job(s) registered; no failure on the last run of this process.`,
+    });
+
+    const errorRate = metrics.requests.errorRate;
+    components.push({
+      key: 'requests',
+      label: 'API responses',
+      status: metrics.requests.serverErrors > 0 ? 'DEGRADED' : 'OK',
+      detail: `${metrics.requests.total} request(s) since start, ${errorRate}% rejected (${metrics.requests.serverErrors} server error(s)), ${metrics.requests.averageMs} ms average.`,
+    });
+
+    if (metrics.storage.diskFreePercent !== null) {
+      components.push({
+        key: 'disk',
+        label: 'Disk space',
+        status: metrics.storage.diskFreePercent < 5 ? 'FAILING' : metrics.storage.diskFreePercent < 15 ? 'DEGRADED' : 'OK',
+        detail: `${metrics.storage.diskFreePercent}% free on the volume holding ${metrics.storage.directory}.`,
+      });
+    }
+
+    const status = components.some((component) => component.status === 'FAILING')
+      ? 'FAILING'
+      : components.some((component) => component.status === 'DEGRADED')
+        ? 'DEGRADED'
+        : 'OK';
+
+    return { checkedAt: new Date().toISOString(), status, environment: appConfig().env, components };
+  }
+
+  private async databaseLatency() {
+    const startedAt = Date.now();
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return { reachable: true, latencyMs: Date.now() - startedAt, error: null as string | null };
+    } catch (error) {
+      return {
+        reachable: false,
+        latencyMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message.split('\n')[0] : 'database unavailable',
+      };
+    }
+  }
+
+  /** Bytes recorded in the register, and the free space of the volume they live on. */
+  private async storageUsage() {
+    const directory = appConfig().storage.localDir;
+    const [companyDocuments, permitDocuments, evidence, media] = await Promise.all([
+      this.prisma.companyDocument.aggregate({ _sum: { sizeBytes: true }, _count: true }),
+      this.prisma.permitDocument.aggregate({ _sum: { sizeBytes: true }, _count: true }),
+      this.prisma.evidence.aggregate({ _sum: { sizeBytes: true }, _count: true }),
+      this.prisma.mediaAsset.aggregate({ _sum: { sizeBytes: true }, _count: true }),
+    ]);
+
+    const buckets = [
+      { key: 'companyDocuments', files: companyDocuments._count, bytes: companyDocuments._sum.sizeBytes ?? 0 },
+      { key: 'permitDocuments', files: permitDocuments._count, bytes: permitDocuments._sum.sizeBytes ?? 0 },
+      { key: 'evidence', files: evidence._count, bytes: evidence._sum.sizeBytes ?? 0 },
+      { key: 'media', files: media._count, bytes: media._sum.sizeBytes ?? 0 },
+    ];
+    const totalBytes = buckets.reduce((sum, bucket) => sum + bucket.bytes, 0);
+
+    let diskFreePercent: number | null = null;
+    let diskFreeMb: number | null = null;
+    let diskTotalMb: number | null = null;
+    try {
+      const stats = await statfs(directory);
+      const total = Number(stats.blocks) * Number(stats.bsize);
+      const free = Number(stats.bavail) * Number(stats.bsize);
+      if (total > 0) {
+        diskFreePercent = Number(((free / total) * 100).toFixed(1));
+        diskFreeMb = Number((free / 1024 / 1024).toFixed(0));
+        diskTotalMb = Number((total / 1024 / 1024).toFixed(0));
+      }
+    } catch {
+      // The upload directory may not exist yet on a fresh deployment.
+    }
+
+    return {
+      directory,
+      driver: appConfig().storage.driver,
+      files: buckets.reduce((sum, bucket) => sum + bucket.files, 0),
+      totalMb: Number((totalBytes / 1024 / 1024).toFixed(2)),
+      byKind: buckets.map((bucket) => ({ ...bucket, mb: Number((bucket.bytes / 1024 / 1024).toFixed(2)) })),
+      diskFreePercent,
+      diskFreeMb,
+      diskTotalMb,
+    };
+  }
+
+  /** How much the register is actually being used over the last 24 hours. */
+  private async workload() {
+    const since = new Date(Date.now() - 86_400_000);
+    const [audited, logins, failedLogins, notifications, sessions] = await Promise.all([
+      this.prisma.auditLog.count({ where: { createdAt: { gte: since } } }),
+      this.prisma.auditLog.count({ where: { createdAt: { gte: since }, action: 'LOGIN' } }),
+      this.prisma.auditLog.count({ where: { createdAt: { gte: since }, action: 'LOGIN_FAILED' } }),
+      this.prisma.notification.count({ where: { createdAt: { gte: since } } }),
+      this.prisma.refreshToken.count({ where: { revokedAt: null, expiresAt: { gt: new Date() } } }),
+    ]);
+    return { windowHours: 24, auditedActions: audited, logins, failedLogins, notificationsCreated: notifications, activeSessions: sessions };
   }
 
   // ------------------------------------------------------------- integrations

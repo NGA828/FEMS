@@ -17,6 +17,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { computeOutstanding } from '../payments/payment-rules';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -25,6 +26,7 @@ import { canReadAll, companyScope } from '../common/utils/access-scope.util';
 import { resolveOrderBy } from '../common/dto/pagination.dto';
 import { stringifyJson } from '../common/utils/json.util';
 import type { AuthenticatedUser } from '../common/decorators';
+import { renderPermitCertificate, permitVerificationCode, type PermitCertificateData } from './permit-certificate';
 import {
   assertTransition,
   availableActions,
@@ -61,7 +63,10 @@ export class PermitsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
-  ) {}
+    private readonly metrics: MetricsService,
+  ) {
+    this.metrics.declareJob('permit-lifecycle');
+  }
 
   // ------------------------------------------------------------------ reads
 
@@ -190,6 +195,60 @@ export class PermitsService {
     return {
       ...permit,
       availableActions: availableActions(user, permit).map((action) => this.describeAction(action)),
+    };
+  }
+
+  /**
+   * Printable permit certificate (PDF).
+   *
+   * Rendered from the live row at the moment of the request, so the status
+   * stamp can never claim a suspended or expired permit is in force. Every
+   * download is audited: who took a copy of which permit, and when.
+   */
+  async certificate(user: AuthenticatedUser, id: string): Promise<{ buffer: Buffer; fileName: string; permitNumber: string }> {
+    const permit = await this.prisma.exploitationPermit.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        ...PERMIT_INCLUDE,
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          include: { changedBy: { select: { firstName: true, lastName: true } } },
+        },
+        payments: {
+          where: { status: 'SUCCESSFUL' },
+          orderBy: { paidAt: 'asc' },
+          select: { reference: true, amount: true, currency: true, status: true, paidAt: true },
+        },
+      },
+    });
+    if (!permit) throw new NotFoundException({ code: 'PERMIT_NOT_FOUND', message: 'Permit not found.' });
+    this.assertVisible(user, permit);
+
+    const organisation = await this.prisma.systemSetting.findFirst({
+      where: { key: 'organization.name' },
+      select: { value: true },
+    });
+
+    const buffer = await renderPermitCertificate(permit as unknown as PermitCertificateData, {
+      organisation: organisation?.value ?? 'Ministère des Forêts et de la Faune — FEMS',
+      generatedBy: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email || 'FEMS',
+    });
+
+    await this.audit.record({
+      action: AuditAction.EXPORT,
+      entityType: 'ExploitationPermit',
+      entityId: permit.id,
+      description: `Permit certificate downloaded: ${permit.permitNumber} (${permit.status})`,
+      severity: AuditSeverity.INFO,
+      actorId: user.id,
+      actorEmail: user.email,
+      after: { verificationCode: permitVerificationCode(permit), status: permit.status },
+    });
+
+    return {
+      buffer,
+      fileName: `${permit.permitNumber.replace(/[^A-Za-z0-9._-]+/g, '-')}.pdf`,
+      permitNumber: permit.permitNumber,
     };
   }
 
@@ -1028,6 +1087,10 @@ export class PermitsService {
    * silently changes a permit that still has an open suspension review.
    */
   @Cron('0 4 * * *', { name: 'permit-lifecycle' })
+  async scheduledLifecycleSweep(): Promise<{ expired: number; warned: number }> {
+    return this.metrics.track('permit-lifecycle', () => this.runLifecycleSweep());
+  }
+
   async runLifecycleSweep(): Promise<{ expired: number; warned: number }> {
     const now = new Date();
     const overdue = await this.prisma.exploitationPermit.findMany({

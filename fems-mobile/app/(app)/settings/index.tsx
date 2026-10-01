@@ -64,6 +64,7 @@ export default function SettingsScreen() {
   // Integration status is administrator-only on the server; do not fire the
   // request (and a guaranteed 403) for an account that cannot read it.
   const canReadIntegrations = hasAnyPermission('settings:read', 'settings:manage');
+  const canMonitor = hasAnyPermission('system:monitor', 'system:health', 'settings:manage');
   const canManageSettings = hasPermission('settings:manage');
   const integrations = useIntegrations(true, canReadIntegrations);
   const sendTestEmail = useSendTestEmail();
@@ -311,7 +312,12 @@ export default function SettingsScreen() {
             tone={mail ? (mail.state === 'READY' ? 'success' : 'warning') : 'muted'}
           />
         </Card>
-        <Button label="Re-check now" variant="secondary" icon="refresh-outline" style={{ marginTop: 10 }} loading={health.isRefetching} onPress={() => { void health.refetch(); void provider.refetch(); void ai.refetch(); if (canReadIntegrations) void integrations.refetch(); }} />
+        <Row gap={8} wrap style={{ marginTop: 10 }}>
+          <Button label="Re-check now" variant="secondary" icon="refresh-outline" loading={health.isRefetching} onPress={() => { void health.refetch(); void provider.refetch(); void ai.refetch(); if (canReadIntegrations) void integrations.refetch(); }} />
+          {canMonitor ? (
+            <Button label="System monitoring" icon="pulse-outline" onPress={() => router.push('/settings/monitoring')} />
+          ) : null}
+        </Row>
       </Section>
 
       {gis.data ? (

@@ -338,3 +338,46 @@ In the mobile app: **Settings → Email delivery** shows the same status and has
 | `ETIMEDOUT` / `ECONNREFUSED` | Outbound port 587/465 is blocked on the network, or the host is wrong. |
 | Mail works locally, not after deploy | The `.env` of the deployed API has no SMTP values — they are not baked into the build. |
 | Message sent but not received | Check the spam folder on the first send, and that `SMTP_FROM` matches `SMTP_USER`. |
+
+## Printable documents (PDF)
+
+FEMS renders two official documents server-side, from the live record, so a
+printed copy can never disagree with the register:
+
+| Route | Permission | Document |
+|---|---|---|
+| `GET /api/v1/permits/:id/download` | `permits:download` | **Permit certificate** — holder, forest and zone, authorised volume, validity dates, fees assessed/settled/outstanding, conditions, decision history and a verification code |
+| `GET /api/v1/payments/:id/receipt/pdf` | `payments:download_receipt` | **Payment receipt** — amount, method, provider reference, payer, the permit it settles, and a verification code |
+
+Both are plain `application/pdf` responses behind the bearer token (a plain link
+would be rejected), and both are written to the audit trail as an `EXPORT`.
+
+Honesty rules baked into the renderer:
+
+- a permit that is not in force (draft, submitted, suspended, revoked, expired,
+  rejected) is **stamped "not valid"** and carries an explanatory banner rather
+  than being refused — the record can still be filed;
+- seeded demonstration data is stamped `DEMONSTRATION DATA`;
+- a sandbox payment (`PAYMENT_PROVIDER=simulator`) is stamped **"no funds
+  moved"**, so a simulated settlement can never pass for proof of payment.
+
+In the mobile app: **Download the permit** on the permit screen, **Download the
+receipt** on a settled payment. The file is fetched with the session token and
+handed to the platform share sheet.
+
+## System monitoring
+
+Administrators can see what the deployment is actually doing:
+
+| Route | Permission | Purpose |
+|---|---|---|
+| `GET /api/v1/system/metrics` | `system:monitor` | Request throughput and error rate per minute, busiest and slowest routes, every scheduled job with its last outcome and duration, database latency, storage consumption and free disk, and the 24-hour workload (audited actions, sign-ins, refused sign-ins, notifications, active sessions) |
+| `GET /api/v1/system/health` | `system:health` | One OK / DEGRADED / FAILING verdict per component (email, push, payments, AI, storage, database, scheduled jobs, API responses, disk) |
+
+Request counters are collected in-process by an interceptor and reset when the
+API restarts — the payload states `process.startedAt` so the window is explicit.
+Scheduled jobs (`permit-lifecycle`, `ai-risk-sweep`,
+`violation-remediation-sweep`) report success, duration and failure reason.
+
+In the mobile app: **Settings → System monitoring**, also reachable from the
+dashboard's Administration block and the module catalogue.

@@ -28,20 +28,23 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 | Request exploitation permit | ✅ | `POST /permits` + `submit` action → `permit/new` |
 | View permit status | ✅ | `GET /permits/:id`, `/timeline` → `permit/[id]` |
 | Manage permit | ✅ | `PATCH /permits/:id`, `POST /permits/:id/actions/:action` |
-| **Download permit** | ❌ | **No endpoint.** `permits:download` is granted to 3 roles but no route consumes it, and the permit screen has no download action. Only user-uploaded attachments can be fetched (`GET /files/download`). There is no generated permit certificate/PDF. |
+| Download permit | ✅ | `GET /permits/:id/download` (`permits:download`) renders the certificate as a PDF — holder, forest/zone, authorised volume, validity, fees settled, conditions, decision history, verification code — and `permit/[id]` has a **Download the permit** button. Rendered from the live row, so a suspended/expired/draft permit prints stamped *not valid*. Every download is audited (`EXPORT`). *(implemented 2026-10-01)* |
 
 ## Company representative
 
 | Use case | Status | Where |
 |---|---|---|
 | Manage company profile | ✅ | `GET/PATCH /companies/:id`, documents routes → `company/[id]` |
-| **Download approved permit** | ❌ | Same gap as above — nothing renders an approved permit as a document. |
+| Download approved permit | ✅ | Same route; an `APPROVED`/`ACTIVE` permit is the case that prints with a valid stamp. *(implemented 2026-10-01)* |
 | Renew permit | ✅ | `POST /permits/:id/renew` → `permit/[id]` |
 | Schedule exploitation activities | ✅ | `POST /activities` (planned dates, GPS) → `activity/capture` |
 | View payment history | ✅ | `GET /payments`, `/payments/:id/receipt` → payments tab, `payment/[id]` |
 
-> ⚠️ `GET /payments/:id/receipt` returns receipt **data**, not a PDF — the receipt
-> cannot be saved or printed as a document.
+> `GET /payments/:id/receipt` returns the receipt data and
+> `GET /payments/:id/receipt/pdf` (`payments:download_receipt`) the printable
+> document, with a **Download the receipt** button on `payment/[id]`. A sandbox
+> settlement is stamped "no funds moved" so it can never pass for proof of
+> payment. *(implemented 2026-10-01)*
 
 ## Government forest office
 
@@ -68,7 +71,7 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 | Use case | Status | Where |
 |---|---|---|
 | Manage user account | ✅ | `/users` CRUD, roles, status, password reset → `user/index`, `user/[id]`. **Was unreachable until 2026-10-01**: the app's role vocabulary said `ADMIN`/`SUPER_ADMIN` while the API emits `ADMINISTRATOR`, so administrators fell through to the visitor navigation. Fixed, plus an Administration block on the dashboard. The detail screen now also covers the whole backend surface: edit details (`PATCH /users/:id`), grant/revoke roles with optional expiry (`POST`/`DELETE /users/:id/roles`), deactivate (soft-delete + session revoke) and restore, on top of suspend/reactivate and password reset; the list tiles read `GET /users/statistics`. |
-| **Monitor system performance** | ⚠️ | `GET /health` (DB up/latency/uptime), `GET /audit/summary`, `GET /system/integrations` (new). **Missing:** request throughput, error rates, slow-query/latency history, cron-job outcomes, storage usage. The permissions `system:monitor` and `system:health` are defined but enforced by no route. |
+| Monitor system performance | ✅ | `GET /system/metrics` (`system:monitor`): request throughput and error rate per minute, busiest and slowest routes, every scheduled job with its last outcome and duration, database latency, storage consumption and free disk, 24-hour workload (audited actions, sign-ins, refused sign-ins, notifications, active sessions). `GET /system/health` (`system:health`) gives one OK / DEGRADED / FAILING verdict per component. Plus the pre-existing `GET /health`, `GET /audit/summary`, `GET /system/integrations`. Mobile: **Settings → System monitoring**. *(implemented 2026-10-01)* |
 
 ## External systems
 
@@ -83,16 +86,20 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 
 ## Findings to act on
 
-1. **"Download permit" / "download approved permit" are not implemented** (2 use
-   cases, 3 roles). Needs a `GET /permits/:id/download` that renders the permit
-   as a PDF (number, holder, forest/zone, volume, validity, conditions,
-   decision history) behind the existing `permits:download` permission, plus a
-   download button on the permit screen. The reporting module already has a PDF
-   renderer (`src/reports/report-pdf.ts`) to reuse.
-2. **Payment receipts are data-only** — same treatment would make
-   `payments:download_receipt` meaningful.
-3. **"Monitor system performance" is thin** — health + audit + integrations, no
-   real metrics; `system:monitor` / `system:health` are dead permissions.
+1. ~~**"Download permit" / "download approved permit" are not implemented**~~ —
+   **done (2026-10-01).** `GET /permits/:id/download` renders the certificate
+   through a new single-document renderer (`src/common/pdf/official-document.ts`)
+   and `src/permits/permit-certificate.ts`; the mobile permit screen downloads it
+   with the bearer token and hands it to the share sheet.
+2. ~~**Payment receipts are data-only**~~ — **done (2026-10-01).**
+   `GET /payments/:id/receipt/pdf` makes `payments:download_receipt` meaningful.
+3. ~~**"Monitor system performance" is thin**~~ — **done (2026-10-01).**
+   `GET /system/metrics` (`system:monitor`) reports request throughput and error
+   rates per minute, the busiest and slowest routes, the outcome and duration of
+   every scheduled job, database latency, storage consumption with free disk, and
+   the 24-hour workload; `GET /system/health` (`system:health`) rolls the
+   components into one OK / DEGRADED / FAILING verdict. Both permissions are now
+   enforced. Mobile: **Settings → System monitoring** (`settings/monitoring`).
 4. **RBAC leak (not in the diagram):** `COMPANY_PERMISSIONS` grants
    `environmental:read` (global), so a company representative can list **every**
    violation of **every** operator. The file even documents the opposite intent
@@ -110,9 +117,11 @@ The use-case diagram describes **26 use cases**. The system exposes **181 REST
 routes across 20 controllers** and **53 mobile screens**. So "what is missing"
 splits into three categories, and only the first one is visible on the diagram.
 
-### A. Missing *inside* the diagram (3)
-`download permit`, `download approved permit`, and a thin
-`monitor system performance` — detailed above.
+### A. Missing *inside* the diagram (0 — was 3)
+`download permit`, `download approved permit` and the thin
+`monitor system performance` were the last three; all were implemented on
+2026-10-01 (details above). Every use case on the diagram is now covered by a
+route **and** a screen.
 
 ### B. Missing *outside* the diagram
 A use-case diagram cannot express infrastructure, so these do not appear on it
