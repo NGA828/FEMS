@@ -1,7 +1,7 @@
 {
   "name": "fems-backend",
   "version": "1.0.0",
-  "description": "FEMS NestJS API \u2014 forest exploitation management, permits, payments, inspections, GIS and AI forest intelligence.",
+  "description": "FEMS NestJS API — forest exploitation management, permits, payments, inspections, GIS and AI forest intelligence.",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -60,6 +60,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "compression": "^1.8.1",
+    "fems": "file:..",
     "helmet": "^8.1.0",
     "mariadb": "^3.4.5",
     "multer": "^2.0.2",
