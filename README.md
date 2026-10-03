@@ -8,6 +8,14 @@ FEMS is a full-stack forestry management platform with:
 
 This repository is not just a UI mockup: the backend, Prisma schema, permissions, payments, GIS, inspections, AI, and mobile app are all wired together.
 
+## Documentation
+
+| Document | Who it is for |
+|---|---|
+| [User Guide](./docs/USER-GUIDE.md) | Everyone who uses FEMS: roles, every screen, and nine step-by-step workflows |
+| [User Guide (PDF)](./docs/FEMS-User-Guide.pdf) | The same guide typeset for printing or sharing. Rebuild it after editing the Markdown with `python3 docs/tools/render-user-guide-pdf.py` |
+| [Postman collection & API screenshots](./docs/postman/README.md) | Anyone integrating with or testing the API — 194 requests, 104 screenshots of real responses |
+
 ## Prerequisites
 
 Before you start, install:
@@ -278,6 +286,7 @@ Make sure the backend is running on port 3000 and that `EXPO_PUBLIC_API_URL` poi
 
 ## Notes
 
+- New to FEMS? Start with the [User Guide](./docs/USER-GUIDE.md).
 - Do not commit secrets to source control.
 - The backend expects environment variables from [fems-backend/.env.example](./fems-backend/.env.example).
 - Payment integrations default to a simulator in local development unless you configure Campay credentials.
