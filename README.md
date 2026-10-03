@@ -13,6 +13,7 @@ This repository is not just a UI mockup: the backend, Prisma schema, permissions
 | Document | Who it is for |
 |---|---|
 | [User Guide](./docs/USER-GUIDE.md) | Everyone who uses FEMS: roles, every screen, and nine step-by-step workflows |
+| [User Guide (PDF)](./docs/FEMS-User-Guide.pdf) | The same guide typeset for printing or sharing. Rebuild it after editing the Markdown with `python3 docs/tools/render-user-guide-pdf.py` |
 | [Postman collection & API screenshots](./docs/postman/README.md) | Anyone integrating with or testing the API — 194 requests, 104 screenshots of real responses |
 
 ## Prerequisites
