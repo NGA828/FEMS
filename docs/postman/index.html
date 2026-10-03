@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FEMS API — Postman walkthrough</title>
+<style>
+  body { margin: 0; background: #141417; color: #e7e7ea; font: 15px/1.6 "Inter", "Segoe UI", system-ui, sans-serif; }
+  header { padding: 40px 32px 24px; border-bottom: 1px solid #2a2a31; }
+  h1 { margin: 0 0 8px; font-size: 26px; }
+  header p { margin: 0; color: #9a9aa4; max-width: 78ch; }
+  main { padding: 8px 32px 64px; max-width: 1520px; }
+  h2 { margin: 36px 0 14px; font-size: 18px; color: #ff8c5f; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 22px; }
+  figure { margin: 0; background: #1b1b1f; border: 1px solid #2a2a31; border-radius: 10px; overflow: hidden; }
+  figure a { display: block; }
+  figure img { width: 100%; display: block; border-bottom: 1px solid #2a2a31; }
+  figcaption { padding: 10px 14px; font-size: 13px; color: #b9b9c3; }
+  figcaption b { color: #fff; font-weight: 600; }
+  .m { font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+  .m.get { color: #4ec9a5; } .m.post { color: #ff9f43; } .m.patch { color: #c08cff; }
+  .m.delete { color: #ff6b6b; } .m.put { color: #4aa8ff; }
+  code { background: #232327; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+</style></head>
+<body>
+<header>
+  <h1>FEMS API — Postman walkthrough</h1>
+  <p>104 real requests, executed against a seeded FEMS instance on <code>http://127.0.0.1:3000/api/v1</code>
+  at 2026-10-03T17:24:53.273Z. Every image shows the status, latency and body the API actually returned —
+  nothing is mocked. Import <code>FEMS-API.postman_collection.json</code> and
+  <code>FEMS-Local.postman_environment.json</code> into Postman to replay them yourself.</p>
+</header>
+<main>
+
+  <h2>Auth</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/auth-login-admin.png"><img src="screenshots/auth-login-admin.png" alt="Login — administrator" loading="lazy"></a>
+      <figcaption><b>Login — administrator</b><br>
+        <span class="m post">POST</span>
+        <code>/auth/login</code> — 200 in 143 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/auth-me.png"><img src="screenshots/auth-me.png" alt="Current profile" loading="lazy"></a>
+      <figcaption><b>Current profile</b><br>
+        <span class="m get">GET</span>
+        <code>/auth/me</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/auth-sessions.png"><img src="screenshots/auth-sessions.png" alt="Active sessions" loading="lazy"></a>
+      <figcaption><b>Active sessions</b><br>
+        <span class="m get">GET</span>
+        <code>/auth/sessions</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/auth-notification-preferences.png"><img src="screenshots/auth-notification-preferences.png" alt="Notification preferences" loading="lazy"></a>
+      <figcaption><b>Notification preferences</b><br>
+        <span class="m get">GET</span>
+        <code>/auth/notification-preferences</code> — 200 in 17 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/auth-permission-denied.png"><img src="screenshots/auth-permission-denied.png" alt="Permission refused (403)" loading="lazy"></a>
+      <figcaption><b>Permission refused (403)</b><br>
+        <span class="m get">GET</span>
+        <code>/users</code> — 403 in 7 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/auth-unauthenticated.png"><img src="screenshots/auth-unauthenticated.png" alt="Missing token (401)" loading="lazy"></a>
+      <figcaption><b>Missing token (401)</b><br>
+        <span class="m get">GET</span>
+        <code>/permits</code> — 401 in 3 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>System</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/health.png"><img src="screenshots/health.png" alt="Service health" loading="lazy"></a>
+      <figcaption><b>Service health</b><br>
+        <span class="m get">GET</span>
+        <code>/health</code> — 200 in 4 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/system-integrations.png"><img src="screenshots/system-integrations.png" alt="Integration status" loading="lazy"></a>
+      <figcaption><b>Integration status</b><br>
+        <span class="m get">GET</span>
+        <code>/system/integrations</code> — 200 in 9 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/system-health.png"><img src="screenshots/system-health.png" alt="Component health" loading="lazy"></a>
+      <figcaption><b>Component health</b><br>
+        <span class="m get">GET</span>
+        <code>/system/health</code> — 200 in 19 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/system-metrics.png"><img src="screenshots/system-metrics.png" alt="Runtime metrics" loading="lazy"></a>
+      <figcaption><b>Runtime metrics</b><br>
+        <span class="m get">GET</span>
+        <code>/system/metrics</code> — 200 in 11 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Users &amp; roles</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/roles-catalogue.png"><img src="screenshots/roles-catalogue.png" alt="Role catalogue (public)" loading="lazy"></a>
+      <figcaption><b>Role catalogue (public)</b><br>
+        <span class="m get">GET</span>
+        <code>/roles/catalogue</code> — 200 in 2 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/roles-permissions.png"><img src="screenshots/roles-permissions.png" alt="Permission codes" loading="lazy"></a>
+      <figcaption><b>Permission codes</b><br>
+        <span class="m get">GET</span>
+        <code>/roles/permissions</code> — 200 in 11 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/roles-list.png"><img src="screenshots/roles-list.png" alt="Roles with members" loading="lazy"></a>
+      <figcaption><b>Roles with members</b><br>
+        <span class="m get">GET</span>
+        <code>/roles</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/users-list.png"><img src="screenshots/users-list.png" alt="List accounts" loading="lazy"></a>
+      <figcaption><b>List accounts</b><br>
+        <span class="m get">GET</span>
+        <code>/users?page=1&amp;limit=5</code> — 200 in 13 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/users-statistics.png"><img src="screenshots/users-statistics.png" alt="Account statistics" loading="lazy"></a>
+      <figcaption><b>Account statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/users/statistics</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/users-detail.png"><img src="screenshots/users-detail.png" alt="Account detail" loading="lazy"></a>
+      <figcaption><b>Account detail</b><br>
+        <span class="m get">GET</span>
+        <code>/users/e3627807-1ec0-5af9-b090-a66eb4f7a14b</code> — 200 in 22 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Forests &amp; GIS</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/forests-list.png"><img src="screenshots/forests-list.png" alt="List forests (public)" loading="lazy"></a>
+      <figcaption><b>List forests (public)</b><br>
+        <span class="m get">GET</span>
+        <code>/forests?page=1&amp;limit=5</code> — 200 in 10 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/forests-statistics.png"><img src="screenshots/forests-statistics.png" alt="Forest coverage statistics" loading="lazy"></a>
+      <figcaption><b>Forest coverage statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/forests/statistics</code> — 200 in 11 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/forests-detail.png"><img src="screenshots/forests-detail.png" alt="Forest detail" loading="lazy"></a>
+      <figcaption><b>Forest detail</b><br>
+        <span class="m get">GET</span>
+        <code>/forests/41c60e0d-7355-5dba-9755-7ebe7717c6c0</code> — 200 in 35 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/forests-zones.png"><img src="screenshots/forests-zones.png" alt="Zones of a forest" loading="lazy"></a>
+      <figcaption><b>Zones of a forest</b><br>
+        <span class="m get">GET</span>
+        <code>/forests/41c60e0d-7355-5dba-9755-7ebe7717c6c0/zones</code> — 200 in 9 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/forests-inventory-statistics.png"><img src="screenshots/forests-inventory-statistics.png" alt="Timber inventory statistics" loading="lazy"></a>
+      <figcaption><b>Timber inventory statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/forests/inventory/statistics?forestId=41c60e0d-7355-5dba-9755-7ebe7717c6c0</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/tree-species-list.png"><img src="screenshots/tree-species-list.png" alt="Tree species catalogue" loading="lazy"></a>
+      <figcaption><b>Tree species catalogue</b><br>
+        <span class="m get">GET</span>
+        <code>/tree-species?page=1&amp;limit=5</code> — 200 in 7 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/protected-areas-list.png"><img src="screenshots/protected-areas-list.png" alt="Protected areas" loading="lazy"></a>
+      <figcaption><b>Protected areas</b><br>
+        <span class="m get">GET</span>
+        <code>/protected-areas?page=1&amp;limit=5</code> — 200 in 5 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/inventory-list.png"><img src="screenshots/inventory-list.png" alt="Inventory plots" loading="lazy"></a>
+      <figcaption><b>Inventory plots</b><br>
+        <span class="m get">GET</span>
+        <code>/inventory?page=1&amp;limit=5</code> — 200 in 12 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-map.png"><img src="screenshots/gis-map.png" alt="Public map (GeoJSON)" loading="lazy"></a>
+      <figcaption><b>Public map (GeoJSON)</b><br>
+        <span class="m get">GET</span>
+        <code>/gis/map</code> — 200 in 12 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-map-full.png"><img src="screenshots/gis-map-full.png" alt="Full map (officers)" loading="lazy"></a>
+      <figcaption><b>Full map (officers)</b><br>
+        <span class="m get">GET</span>
+        <code>/gis/map/full</code> — 200 in 23 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-layers.png"><img src="screenshots/gis-layers.png" alt="Layer legend" loading="lazy"></a>
+      <figcaption><b>Layer legend</b><br>
+        <span class="m get">GET</span>
+        <code>/gis/layers</code> — 200 in 13 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-nearby.png"><img src="screenshots/gis-nearby.png" alt="Features near a position" loading="lazy"></a>
+      <figcaption><b>Features near a position</b><br>
+        <span class="m get">GET</span>
+        <code>/gis/nearby?latitude=3.848&amp;longitude=11.5021&amp;radiusKm=50</code> — 200 in 13 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-statistics.png"><img src="screenshots/gis-statistics.png" alt="GIS coverage statistics" loading="lazy"></a>
+      <figcaption><b>GIS coverage statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/gis/statistics</code> — 200 in 21 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Companies</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/companies-list.png"><img src="screenshots/companies-list.png" alt="List companies" loading="lazy"></a>
+      <figcaption><b>List companies</b><br>
+        <span class="m get">GET</span>
+        <code>/companies?page=1&amp;limit=5</code> — 200 in 17 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/companies-statistics.png"><img src="screenshots/companies-statistics.png" alt="Company statistics" loading="lazy"></a>
+      <figcaption><b>Company statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/companies/statistics</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/companies-detail.png"><img src="screenshots/companies-detail.png" alt="Company detail" loading="lazy"></a>
+      <figcaption><b>Company detail</b><br>
+        <span class="m get">GET</span>
+        <code>/companies/d7b68655-50ce-5981-9ca2-9f88591411f3</code> — 200 in 25 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/companies-documents.png"><img src="screenshots/companies-documents.png" alt="Company documents" loading="lazy"></a>
+      <figcaption><b>Company documents</b><br>
+        <span class="m get">GET</span>
+        <code>/companies/d7b68655-50ce-5981-9ca2-9f88591411f3/documents</code> — 200 in 27 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/companies-me.png"><img src="screenshots/companies-me.png" alt="My company" loading="lazy"></a>
+      <figcaption><b>My company</b><br>
+        <span class="m get">GET</span>
+        <code>/companies/me</code> — 200 in 21 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Permits</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/permits-list.png"><img src="screenshots/permits-list.png" alt="List permits" loading="lazy"></a>
+      <figcaption><b>List permits</b><br>
+        <span class="m get">GET</span>
+        <code>/permits?page=1&amp;limit=5</code> — 200 in 19 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-statistics.png"><img src="screenshots/permits-statistics.png" alt="Permit statistics" loading="lazy"></a>
+      <figcaption><b>Permit statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/statistics</code> — 200 in 24 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-detail.png"><img src="screenshots/permits-detail.png" alt="Permit detail" loading="lazy"></a>
+      <figcaption><b>Permit detail</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/702edf7d-4311-5c1a-b9da-7b66470a8162</code> — 200 in 42 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-actions.png"><img src="screenshots/permits-actions.png" alt="Available actions" loading="lazy"></a>
+      <figcaption><b>Available actions</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/702edf7d-4311-5c1a-b9da-7b66470a8162/actions</code> — 200 in 20 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-timeline.png"><img src="screenshots/permits-timeline.png" alt="Permit timeline" loading="lazy"></a>
+      <figcaption><b>Permit timeline</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/702edf7d-4311-5c1a-b9da-7b66470a8162/timeline</code> — 200 in 17 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-documents.png"><img src="screenshots/permits-documents.png" alt="Permit documents" loading="lazy"></a>
+      <figcaption><b>Permit documents</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/702edf7d-4311-5c1a-b9da-7b66470a8162/documents</code> — 200 in 20 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-lifecycle.png"><img src="screenshots/permits-lifecycle.png" alt="Lifecycle reference" loading="lazy"></a>
+      <figcaption><b>Lifecycle reference</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/lifecycle</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-expiring.png"><img src="screenshots/permits-expiring.png" alt="Expiring permits" loading="lazy"></a>
+      <figcaption><b>Expiring permits</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/expiring?days=60</code> — 200 in 13 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-download.png"><img src="screenshots/permits-download.png" alt="Download permit certificate (PDF)" loading="lazy"></a>
+      <figcaption><b>Download permit certificate (PDF)</b><br>
+        <span class="m get">GET</span>
+        <code>/permits/702edf7d-4311-5c1a-b9da-7b66470a8162/download</code> — 200 in 79 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Payments</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/payments-provider.png"><img src="screenshots/payments-provider.png" alt="Active payment provider" loading="lazy"></a>
+      <figcaption><b>Active payment provider</b><br>
+        <span class="m get">GET</span>
+        <code>/payments/provider</code> — 200 in 10 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-list.png"><img src="screenshots/payments-list.png" alt="List payments" loading="lazy"></a>
+      <figcaption><b>List payments</b><br>
+        <span class="m get">GET</span>
+        <code>/payments?page=1&amp;limit=5</code> — 200 in 26 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-statistics.png"><img src="screenshots/payments-statistics.png" alt="Collection statistics" loading="lazy"></a>
+      <figcaption><b>Collection statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/payments/statistics</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-detail.png"><img src="screenshots/payments-detail.png" alt="Payment detail" loading="lazy"></a>
+      <figcaption><b>Payment detail</b><br>
+        <span class="m get">GET</span>
+        <code>/payments/5920d244-4578-5648-a2f5-82396b4803e3</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-receipt.png"><img src="screenshots/payments-receipt.png" alt="Receipt data" loading="lazy"></a>
+      <figcaption><b>Receipt data</b><br>
+        <span class="m get">GET</span>
+        <code>/payments/87e1f393-de06-536f-9534-a80c18eb7c51/receipt</code> — 200 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-receipt-pdf.png"><img src="screenshots/payments-receipt-pdf.png" alt="Download receipt (PDF)" loading="lazy"></a>
+      <figcaption><b>Download receipt (PDF)</b><br>
+        <span class="m get">GET</span>
+        <code>/payments/87e1f393-de06-536f-9534-a80c18eb7c51/receipt/pdf</code> — 200 in 35 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Inspections</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/inspections-list.png"><img src="screenshots/inspections-list.png" alt="List inspections" loading="lazy"></a>
+      <figcaption><b>List inspections</b><br>
+        <span class="m get">GET</span>
+        <code>/inspections?page=1&amp;limit=5</code> — 200 in 23 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/inspections-statistics.png"><img src="screenshots/inspections-statistics.png" alt="Inspection statistics" loading="lazy"></a>
+      <figcaption><b>Inspection statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/inspections/statistics</code> — 200 in 33 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/inspections-detail.png"><img src="screenshots/inspections-detail.png" alt="Inspection detail" loading="lazy"></a>
+      <figcaption><b>Inspection detail</b><br>
+        <span class="m get">GET</span>
+        <code>/inspections/daa58eb3-c868-57e8-a58a-7c0df22aac1e</code> — 200 in 40 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/inspections-evidence.png"><img src="screenshots/inspections-evidence.png" alt="Evidence register" loading="lazy"></a>
+      <figcaption><b>Evidence register</b><br>
+        <span class="m get">GET</span>
+        <code>/inspections/evidence?page=1&amp;limit=5</code> — 200 in 18 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Exploitation</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/activities-list.png"><img src="screenshots/activities-list.png" alt="List field activities" loading="lazy"></a>
+      <figcaption><b>List field activities</b><br>
+        <span class="m get">GET</span>
+        <code>/activities?page=1&amp;limit=5</code> — 200 in 24 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/activities-statistics.png"><img src="screenshots/activities-statistics.png" alt="Harvest statistics" loading="lazy"></a>
+      <figcaption><b>Harvest statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/activities/statistics</code> — 200 in 30 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/activities-detail.png"><img src="screenshots/activities-detail.png" alt="Activity detail" loading="lazy"></a>
+      <figcaption><b>Activity detail</b><br>
+        <span class="m get">GET</span>
+        <code>/activities/dd162c9a-3737-51c7-a7e5-8e2d5f476984</code> — 200 in 20 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/equipment-list.png"><img src="screenshots/equipment-list.png" alt="Equipment registry" loading="lazy"></a>
+      <figcaption><b>Equipment registry</b><br>
+        <span class="m get">GET</span>
+        <code>/equipment?page=1&amp;limit=5</code> — 200 in 15 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Observations</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/observations-list.png"><img src="screenshots/observations-list.png" alt="List observations" loading="lazy"></a>
+      <figcaption><b>List observations</b><br>
+        <span class="m get">GET</span>
+        <code>/observations?page=1&amp;limit=5</code> — 200 in 23 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/observations-statistics.png"><img src="screenshots/observations-statistics.png" alt="Observation statistics" loading="lazy"></a>
+      <figcaption><b>Observation statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/observations/statistics</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/observations-detail.png"><img src="screenshots/observations-detail.png" alt="Observation detail" loading="lazy"></a>
+      <figcaption><b>Observation detail</b><br>
+        <span class="m get">GET</span>
+        <code>/observations/30e89314-4949-508d-8d88-7e431a7a2785</code> — 200 in 36 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Environmental</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/violations-list.png"><img src="screenshots/violations-list.png" alt="List violations" loading="lazy"></a>
+      <figcaption><b>List violations</b><br>
+        <span class="m get">GET</span>
+        <code>/violations?page=1&amp;limit=5</code> — 200 in 50 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/violations-statistics.png"><img src="screenshots/violations-statistics.png" alt="Case statistics" loading="lazy"></a>
+      <figcaption><b>Case statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/violations/statistics</code> — 200 in 34 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/violations-detail.png"><img src="screenshots/violations-detail.png" alt="Case detail" loading="lazy"></a>
+      <figcaption><b>Case detail</b><br>
+        <span class="m get">GET</span>
+        <code>/violations/73cf8c1c-ae49-5069-8464-56a2789e194f</code> — 200 in 25 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/violations-penalty.png"><img src="screenshots/violations-penalty.png" alt="Penalty position" loading="lazy"></a>
+      <figcaption><b>Penalty position</b><br>
+        <span class="m get">GET</span>
+        <code>/violations/73cf8c1c-ae49-5069-8464-56a2789e194f/penalty</code> — 200 in 23 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>AI Forest Intelligence</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/ai-status.png"><img src="screenshots/ai-status.png" alt="AI module status" loading="lazy"></a>
+      <figcaption><b>AI module status</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/status</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-catalogue.png"><img src="screenshots/ai-catalogue.png" alt="Rule catalogue" loading="lazy"></a>
+      <figcaption><b>Rule catalogue</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/catalogue</code> — 200 in 8 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-alerts-list.png"><img src="screenshots/ai-alerts-list.png" alt="List AI signals" loading="lazy"></a>
+      <figcaption><b>List AI signals</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/alerts?page=1&amp;limit=5</code> — 200 in 22 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-alerts-statistics.png"><img src="screenshots/ai-alerts-statistics.png" alt="Alert workload" loading="lazy"></a>
+      <figcaption><b>Alert workload</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/alerts/statistics</code> — 200 in 19 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-alerts-detail.png"><img src="screenshots/ai-alerts-detail.png" alt="Alert with reasoning" loading="lazy"></a>
+      <figcaption><b>Alert with reasoning</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/alerts/43661667-ac63-5520-8f34-1710d49d3b6f</code> — 200 in 22 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-analyses-list.png"><img src="screenshots/ai-analyses-list.png" alt="Analyses" loading="lazy"></a>
+      <figcaption><b>Analyses</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/analyses?page=1&amp;limit=5</code> — 200 in 19 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-assistant-conversations.png"><img src="screenshots/ai-assistant-conversations.png" alt="Assistant conversations" loading="lazy"></a>
+      <figcaption><b>Assistant conversations</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/assistant/conversations</code> — 200 in 11 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-assistant-ask.png"><img src="screenshots/ai-assistant-ask.png" alt="Ask the Forest Assistant" loading="lazy"></a>
+      <figcaption><b>Ask the Forest Assistant</b><br>
+        <span class="m post">POST</span>
+        <code>/ai/assistant/ask</code> — 201 in 52 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-analyses-run.png"><img src="screenshots/ai-analyses-run.png" alt="Run an analysis" loading="lazy"></a>
+      <figcaption><b>Run an analysis</b><br>
+        <span class="m post">POST</span>
+        <code>/ai/analyses</code> — 201 in 52 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/ai-analyses-detail.png"><img src="screenshots/ai-analyses-detail.png" alt="Analysis detail" loading="lazy"></a>
+      <figcaption><b>Analysis detail</b><br>
+        <span class="m get">GET</span>
+        <code>/ai/analyses/8f8a5f3d-3071-4924-8d45-9911ff5f2226</code> — 200 in 17 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Reports</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/reports-catalogue.png"><img src="screenshots/reports-catalogue.png" alt="Report catalogue" loading="lazy"></a>
+      <figcaption><b>Report catalogue</b><br>
+        <span class="m get">GET</span>
+        <code>/reports/catalogue</code> — 200 in 9 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-list.png"><img src="screenshots/reports-list.png" alt="Generated reports" loading="lazy"></a>
+      <figcaption><b>Generated reports</b><br>
+        <span class="m get">GET</span>
+        <code>/reports?page=1&amp;limit=5</code> — 200 in 14 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-statistics.png"><img src="screenshots/reports-statistics.png" alt="Report statistics" loading="lazy"></a>
+      <figcaption><b>Report statistics</b><br>
+        <span class="m get">GET</span>
+        <code>/reports/statistics</code> — 200 in 10 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-preview.png"><img src="screenshots/reports-preview.png" alt="Preview a dataset" loading="lazy"></a>
+      <figcaption><b>Preview a dataset</b><br>
+        <span class="m post">POST</span>
+        <code>/reports/preview</code> — 201 in 12 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-generate.png"><img src="screenshots/reports-generate.png" alt="Generate a report" loading="lazy"></a>
+      <figcaption><b>Generate a report</b><br>
+        <span class="m post">POST</span>
+        <code>/reports</code> — 201 in 43 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-detail.png"><img src="screenshots/reports-detail.png" alt="Report detail" loading="lazy"></a>
+      <figcaption><b>Report detail</b><br>
+        <span class="m get">GET</span>
+        <code>/reports/ef8497f0-0025-4bd6-b54d-2afe63cdb801</code> — 200 in 11 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/reports-download.png"><img src="screenshots/reports-download.png" alt="Download report file" loading="lazy"></a>
+      <figcaption><b>Download report file</b><br>
+        <span class="m get">GET</span>
+        <code>/reports/ef8497f0-0025-4bd6-b54d-2afe63cdb801/download</code> — 200 in 17 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Notifications</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/notifications-list.png"><img src="screenshots/notifications-list.png" alt="Notification inbox" loading="lazy"></a>
+      <figcaption><b>Notification inbox</b><br>
+        <span class="m get">GET</span>
+        <code>/notifications?page=1&amp;limit=5</code> — 200 in 10 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/notifications-unread-count.png"><img src="screenshots/notifications-unread-count.png" alt="Unread count" loading="lazy"></a>
+      <figcaption><b>Unread count</b><br>
+        <span class="m get">GET</span>
+        <code>/notifications/unread-count</code> — 200 in 6 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Audit</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/audit-list.png"><img src="screenshots/audit-list.png" alt="Audit trail" loading="lazy"></a>
+      <figcaption><b>Audit trail</b><br>
+        <span class="m get">GET</span>
+        <code>/audit?page=1&amp;limit=5</code> — 200 in 10 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/audit-summary.png"><img src="screenshots/audit-summary.png" alt="Audit summary" loading="lazy"></a>
+      <figcaption><b>Audit summary</b><br>
+        <span class="m get">GET</span>
+        <code>/audit/summary</code> — 200 in 12 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Media</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/media-list.png"><img src="screenshots/media-list.png" alt="Media descriptors" loading="lazy"></a>
+      <figcaption><b>Media descriptors</b><br>
+        <span class="m get">GET</span>
+        <code>/media</code> — 200 in 8 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/media-covers.png"><img src="screenshots/media-covers.png" alt="Cover images" loading="lazy"></a>
+      <figcaption><b>Cover images</b><br>
+        <span class="m get">GET</span>
+        <code>/media/covers</code> — 200 in 2 ms</figcaption>
+    </figure>
+  </div>
+
+  <h2>Write operations</h2>
+  <div class="grid">
+    <figure>
+      <a href="screenshots/forests-create.png"><img src="screenshots/forests-create.png" alt="Register a forest" loading="lazy"></a>
+      <figcaption><b>Register a forest</b><br>
+        <span class="m post">POST</span>
+        <code>/forests</code> — 201 in 25 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/forests-create-zone.png"><img src="screenshots/forests-create-zone.png" alt="Create a forest zone" loading="lazy"></a>
+      <figcaption><b>Create a forest zone</b><br>
+        <span class="m post">POST</span>
+        <code>/forests/2b500125-99a3-45c2-8dd3-ce4ce181d259/zones</code> — 201 in 22 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-create.png"><img src="screenshots/permits-create.png" alt="File a permit application" loading="lazy"></a>
+      <figcaption><b>File a permit application</b><br>
+        <span class="m post">POST</span>
+        <code>/permits</code> — 201 in 33 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-submit.png"><img src="screenshots/permits-submit.png" alt="Submit the application" loading="lazy"></a>
+      <figcaption><b>Submit the application</b><br>
+        <span class="m post">POST</span>
+        <code>/permits/b54b9d3a-761c-4931-aede-9ef186e66504/actions/SUBMIT</code> — 201 in 34 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-start-review.png"><img src="screenshots/permits-start-review.png" alt="Start the review" loading="lazy"></a>
+      <figcaption><b>Start the review</b><br>
+        <span class="m post">POST</span>
+        <code>/permits/b54b9d3a-761c-4931-aede-9ef186e66504/actions/START_REVIEW</code> — 201 in 22 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-approve.png"><img src="screenshots/permits-approve.png" alt="Approve the application" loading="lazy"></a>
+      <figcaption><b>Approve the application</b><br>
+        <span class="m post">POST</span>
+        <code>/permits/b54b9d3a-761c-4931-aede-9ef186e66504/actions/APPROVE</code> — 201 in 43 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-mark-payment-pending.png"><img src="screenshots/permits-mark-payment-pending.png" alt="Mark payment pending" loading="lazy"></a>
+      <figcaption><b>Mark payment pending</b><br>
+        <span class="m post">POST</span>
+        <code>/permits/b54b9d3a-761c-4931-aede-9ef186e66504/actions/MARK_PAYMENT_PENDING</code> — 201 in 24 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-create.png"><img src="screenshots/payments-create.png" alt="Pay the permit fee" loading="lazy"></a>
+      <figcaption><b>Pay the permit fee</b><br>
+        <span class="m post">POST</span>
+        <code>/payments</code> — 201 in 50 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/payments-simulate.png"><img src="screenshots/payments-simulate.png" alt="Confirm sandbox settlement" loading="lazy"></a>
+      <figcaption><b>Confirm sandbox settlement</b><br>
+        <span class="m post">POST</span>
+        <code>/payments/4bfbab3d-0db1-44cf-9628-93c11bec52c3/simulate</code> — 201 in 54 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/permits-activate.png"><img src="screenshots/permits-activate.png" alt="Activate the permit" loading="lazy"></a>
+      <figcaption><b>Activate the permit</b><br>
+        <span class="m post">POST</span>
+        <code>/permits/b54b9d3a-761c-4931-aede-9ef186e66504/actions/ACTIVATE</code> — 201 in 36 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/observations-create.png"><img src="screenshots/observations-create.png" alt="Record a field observation" loading="lazy"></a>
+      <figcaption><b>Record a field observation</b><br>
+        <span class="m post">POST</span>
+        <code>/observations</code> — 201 in 46 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/inspections-create.png"><img src="screenshots/inspections-create.png" alt="Schedule an inspection" loading="lazy"></a>
+      <figcaption><b>Schedule an inspection</b><br>
+        <span class="m post">POST</span>
+        <code>/inspections</code> — 201 in 40 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/violations-create.png"><img src="screenshots/violations-create.png" alt="Open a violation case" loading="lazy"></a>
+      <figcaption><b>Open a violation case</b><br>
+        <span class="m post">POST</span>
+        <code>/violations</code> — 201 in 33 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/violations-action-investigate.png"><img src="screenshots/violations-action-investigate.png" alt="Progress a case — INVESTIGATE" loading="lazy"></a>
+      <figcaption><b>Progress a case — INVESTIGATE</b><br>
+        <span class="m post">POST</span>
+        <code>/violations/a42975fa-b40f-41ce-8529-3466c0bc684e/actions/INVESTIGATE</code> — 201 in 35 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/gis-record-position.png"><img src="screenshots/gis-record-position.png" alt="Record a GPS check-in" loading="lazy"></a>
+      <figcaption><b>Record a GPS check-in</b><br>
+        <span class="m post">POST</span>
+        <code>/gis/positions</code> — 201 in 16 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/notifications-broadcast.png"><img src="screenshots/notifications-broadcast.png" alt="Broadcast an announcement" loading="lazy"></a>
+      <figcaption><b>Broadcast an announcement</b><br>
+        <span class="m post">POST</span>
+        <code>/notifications/broadcast</code> — 201 in 15 ms</figcaption>
+    </figure>
+    <figure>
+      <a href="screenshots/validation-error.png"><img src="screenshots/validation-error.png" alt="Validation refusal (400)" loading="lazy"></a>
+      <figcaption><b>Validation refusal (400)</b><br>
+        <span class="m post">POST</span>
+        <code>/observations</code> — 400 in 11 ms</figcaption>
+    </figure>
+  </div>
+</main>
+</body></html>
