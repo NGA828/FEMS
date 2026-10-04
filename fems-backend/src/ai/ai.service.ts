@@ -111,8 +111,7 @@ const ALERT_REVIEWER_ROLES = [
  *   - Forest Intelligence: a deterministic rule engine over the live database
  *     raises labelled *signals* (never accusations) that an officer must review.
  *   - Forest Assistant: answers questions from the records the caller is
- *     authorised to read; the model provider (Groq by default, OpenRouter optional)
- *     is used only when a key is configured,
+ *     authorised to read; Groq is used only when GROQ_API_KEY is configured,
  *     and only as a narrator of data FEMS has already authorised.
  */
 @Injectable()
@@ -178,14 +177,7 @@ export class AiService {
 
   /** The `AiProvider` value to stamp on a row the model actually answered. */
   private get providerEnum(): AiProvider {
-    switch (this.llm.provider) {
-      case 'groq':
-        return AiProvider.GROQ;
-      case 'openrouter':
-        return AiProvider.OPENROUTER;
-      default:
-        return AiProvider.LOCAL_RULE_ENGINE;
-    }
+    return this.llm.provider === 'groq' ? AiProvider.GROQ : AiProvider.LOCAL_RULE_ENGINE;
   }
 
   /** Rule catalogue, thresholds and the assistant's data sections. */
@@ -374,9 +366,7 @@ export class AiService {
           'Signals are raised with status NEW and must be reviewed by an officer.',
           'The deterministic rule engine produced every risk level and every figure above; no model decided them.',
           ...(providerError ? [`The model narrative was unavailable: ${providerError}`] : []),
-          ...(dto.useProvider !== false && !this.llm.isConfigured
-            ? ['OPENROUTER_API_KEY is empty, so the narrative was produced by the rule engine instead of a model.']
-            : []),
+          ...(dto.useProvider !== false && !this.llm.isConfigured ? [this.llm.describe().message] : []),
         ],
       };
     } catch (error) {
@@ -849,7 +839,7 @@ export class AiService {
         answerText = `${ruleAnswer.text}\n\n(Note: the AI provider call failed — ${providerError} — so this answer was computed by the FEMS rule engine from the same authorised data.)`;
       }
     } else {
-      answerText = `${ruleAnswer.text}\n\n(Note: OPENROUTER_API_KEY is not configured, so this answer was computed by the FEMS rule engine from your authorised data.)`;
+      answerText = `${ruleAnswer.text}\n\n(Note: ${this.llm.describe().message})`;
     }
 
     const latencyMs = Date.now() - startedAt;

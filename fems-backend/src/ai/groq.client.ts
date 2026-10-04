@@ -6,14 +6,10 @@ import { AiNotConfiguredError, AiProviderError, type LlmDescription, type LlmReq
  * GroqCloud client.
  *
  * Groq serves open-weight models (Llama, GPT-OSS, Qwen…) behind an
- * OpenAI-compatible `/chat/completions` endpoint, with a permanently free tier
- * — which is why FEMS defaults to it. The key lives only on the server: the
+ * OpenAI-compatible `/chat/completions` endpoint. Groq account plans, rate limits
+ * and per-model token quotas can change; a 429 is reported clearly rather than
+ * retried into a worse rate-limit state. The key lives only on the server: the
  * mobile app never talks to Groq directly.
- *
- * The free tier is rate-limited (30 requests/minute, and a per-model daily
- * token budget). A 429 is therefore not an error in the code but an expected
- * operating condition, and it is reported to the caller in plain words instead
- * of being retried into a worse rate-limit state.
  */
 @Injectable()
 export class GroqClient {
@@ -126,18 +122,17 @@ export class GroqClient {
   }
 
   /**
-   * Turns Groq's HTTP failures into something an administrator can act on. The
-   * free tier's two usual answers — a wrong key and an exhausted quota — must
-   * not read the same.
+   * Turns Groq's HTTP failures into something an administrator can act on. A
+   * rejected key and an exhausted rate or token quota must not read the same.
    */
   private explainFailure(status: number, raw: string): string {
     const detail = this.messageOf(raw) ?? raw.slice(0, 300);
     if (status === 401) return `Groq refused the API key (HTTP 401). Check GROQ_API_KEY in fems-backend/.env: ${detail}`;
     if (status === 404) {
-      return `Groq does not serve the model "${this.model}" (HTTP 404). Set GROQ_MODEL to a model your account can use, e.g. llama-3.3-70b-versatile: ${detail}`;
+      return `Groq does not serve the model "${this.model}" (HTTP 404). Set GROQ_MODEL to an active model your account can use, e.g. openai/gpt-oss-120b: ${detail}`;
     }
     if (status === 429) {
-      return `Groq rate limit reached (HTTP 429) on the free tier — 30 requests/minute and a daily token budget per model. The deterministic rule engine still answers. Details: ${detail}`;
+      return `Groq rate limit or token quota reached (HTTP 429). Check the current limits for your account and model. The deterministic rule engine still answers. Details: ${detail}`;
     }
     if (status === 413) return `The prompt was too large for ${this.model} (HTTP 413): ${detail}`;
     return `Groq rejected the request (HTTP ${status}): ${detail}`;

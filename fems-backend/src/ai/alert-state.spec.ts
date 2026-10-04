@@ -136,12 +136,22 @@ describe('alert-state', () => {
       expect(position.detectorLabel).toBe('FEMS rule engine');
     });
 
-    it('makes it obvious that a model-narrated alert is still a machine signal', () => {
+    it('labels Groq narration as a machine signal, not a regulatory decision', () => {
       const position = alertPosition(
-        { status: AlertStatus.NEW, riskLevel: RiskLevel.LOW, detectedAt: now, detector: 'GEMINI', confidence: 0.4 },
+        { status: AlertStatus.NEW, riskLevel: RiskLevel.LOW, detectedAt: now, detector: 'GROQ', confidence: 0.4 },
         now,
       );
-      expect(position.detectorLabel).toContain('narrative only');
+      expect(position.detectorLabel).toBe('Groq (narrative only)');
+    });
+
+    it('keeps legacy model alerts identified as narrative only', () => {
+      for (const detector of ['OPENROUTER', 'GEMINI']) {
+        const position = alertPosition(
+          { status: AlertStatus.NEW, riskLevel: RiskLevel.LOW, detectedAt: now, detector, confidence: 0.4 },
+          now,
+        );
+        expect(position.detectorLabel).toContain('narrative only');
+      }
     });
 
     it('never marks a confirmed alert as still awaiting a decision', () => {

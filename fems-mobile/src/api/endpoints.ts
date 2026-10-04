@@ -438,12 +438,12 @@ export const paymentsApi = {
     payerPhone?: string;
     notes?: string;
     clientRef?: string;
-  }) => api.post<Payment>('/payments', payload, { retries: 0 }).then((r) => r.data),
+  }) => api.post<Payment & { duplicate?: boolean; sandbox?: boolean; instructions?: string }>('/payments', payload, { retries: 0 }).then((r) => r.data),
   receipt: (id: string) => api.get<PaymentReceipt>(`/payments/${id}/receipt`).then((r) => r.data),
-  verify: (id: string, notes?: string) => api.post<Payment>(`/payments/${id}/verify`, { notes }).then((r) => r.data),
+  verify: (id: string, notes?: string) => api.post<Payment & { verification?: { status: string; message: string } }>(`/payments/${id}/verify`, { notes }).then((r) => r.data),
   simulate: (id: string, outcome: 'SUCCESSFUL' | 'FAILED' | 'CANCELLED', notes?: string) =>
-    api.post<Payment>(`/payments/${id}/simulate`, { outcome, notes }).then((r) => r.data),
-  refund: (id: string, reason: string) => api.post<Payment>(`/payments/${id}/refund`, { reason }).then((r) => r.data),
+    api.post<Payment & { sandbox: boolean }>(`/payments/${id}/simulate`, { outcome, notes }).then((r) => r.data),
+  refund: (id: string, notes: string) => api.post<Payment>(`/payments/${id}/refund`, { notes }).then((r) => r.data),
   /** The same receipt as a printable PDF. */
   receiptPdfPath: (id: string) => `/payments/${id}/receipt/pdf`,
 };

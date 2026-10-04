@@ -139,11 +139,16 @@ async function withRootConnection(work) {
 async function bootstrap() {
   await withRootConnection(async (connection) => {
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-    // MySQL 5.6 has no `CREATE USER IF NOT EXISTS`: GRANT creates or updates the account.
-    await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'localhost' IDENTIFIED BY '${dbPassword}'`);
-    await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'127.0.0.1' IDENTIFIED BY '${dbPassword}'`);
-    await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'%' IDENTIFIED BY '${dbPassword}'`);
-    await connection.query('FLUSH PRIVILEGES');
+    // The bundled server's root account already has global privileges. Reissuing
+    // GRANT ... IDENTIFIED BY '' for root rewrites its authentication rows on
+    // MySQL 5.6 and can lock subsequent root connections out, so leave it alone.
+    if (dbUser.toLowerCase() !== 'root') {
+      // MySQL 5.6 has no `CREATE USER IF NOT EXISTS`: GRANT creates or updates the account.
+      await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'localhost' IDENTIFIED BY '${dbPassword}'`);
+      await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'127.0.0.1' IDENTIFIED BY '${dbPassword}'`);
+      await connection.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${dbUser}'@'%' IDENTIFIED BY '${dbPassword}'`);
+      await connection.query('FLUSH PRIVILEGES');
+    }
     const [{ version }] = await connection.query('SELECT VERSION() AS version');
     console.log(`[dev-mysql] database ready: ${dbName} (owner ${dbUser}) on MySQL ${version}`);
   });

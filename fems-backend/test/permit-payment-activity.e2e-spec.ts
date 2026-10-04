@@ -30,7 +30,7 @@ interface Payment {
   reference: string;
   status: string;
   amount: string | number;
-  isSandbox?: boolean;
+  isDemo?: boolean;
 }
 
 describe('Flows — permit → payment → exploitation (e2e)', () => {
@@ -279,7 +279,7 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
       const body = unwrap<Payment & { duplicate?: boolean; sandbox?: boolean }>(response.body);
       payment = body;
       expect(payment.reference).toMatch(/PAY/);
-      expect(payment.isSandbox).toBe(true);
+      expect(payment.isDemo).toBe(true);
       expect(body.sandbox).toBe(true);
       expect(['INITIATED', 'PENDING', 'PROCESSING']).toContain(payment.status);
 
@@ -296,9 +296,10 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
           payerPhone: '+237677000000',
           clientRef: `${MARKER}-fee`,
         });
-      const replayed = unwrap<Payment & { duplicate?: boolean }>(replay.body);
+      const replayed = unwrap<Payment & { duplicate?: boolean; sandbox?: boolean }>(replay.body);
       expect(replayed.id).toBe(payment.id);
       expect(replayed.duplicate).toBe(true);
+      expect(replayed.sandbox).toBe(true);
     });
 
     it('does not let the payer confirm their own payment', async () => {
@@ -312,9 +313,9 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
         .set(...bearer(officerToken))
         .send({ outcome: 'SUCCESSFUL', notes: 'End-to-end sandbox confirmation.' });
       expect([200, 201]).toContain(settled.status);
-      const body = unwrap<{ payment: Payment; sandbox: boolean }>(settled.body);
+      const body = unwrap<Payment & { sandbox: boolean }>(settled.body);
       expect(body.sandbox).toBe(true);
-      expect(body.payment.status).toBe('SUCCESSFUL');
+      expect(body.status).toBe('SUCCESSFUL');
 
       const receipt = await ctx.api().get(`${API}/payments/${payment.id}/receipt`).set(...bearer(companyToken));
       expect(receipt.status).toBe(200);
@@ -353,9 +354,9 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
         });
 
       expect([200, 201]).toContain(response.status);
-      const body = unwrap<{ activity: { id: string; reference: string; status: string; latitude: string }; duplicate?: boolean }>(response.body);
-      createdActivityId = body.activity.id;
-      expect(body.activity.reference).toMatch(/ACT/);
+      const activity = unwrap<{ id: string; reference: string; status: string; latitude: string }>(response.body);
+      createdActivityId = activity.id;
+      expect(activity.reference).toMatch(/ACT/);
 
       // Replaying the client reference does not create a second record.
       const replay = await ctx.api()
@@ -372,7 +373,7 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
           gpsSource: 'DEVICE_GPS',
           clientRef: `${MARKER}-activity`,
         });
-      expect(unwrap<{ activity: { id: string } }>(replay.body).activity.id).toBe(createdActivityId);
+      expect(unwrap<{ id: string }>(replay.body).id).toBe(createdActivityId);
     });
 
     it('rejects coordinates outside the valid range', async () => {
@@ -455,12 +456,18 @@ describe('Flows — permit → payment → exploitation (e2e)', () => {
         .send({
           speciesBreakdown: { SAPELLI: 12, IROKO: 6 },
           harvestedVolumeM3: 18,
-          notes: 'End-to-end harvest record.',
+          harvestedTreeCount: 6,
+          observations: 'End-to-end harvest record.',
         });
 
       expect([200, 201]).toContain(response.status);
-      const activity = unwrap<{ speciesBreakdown?: Record<string, number>; harvestedVolumeM3?: string | number; status?: string }>(response.body);
-      const breakdown = activity.speciesBreakdown ?? {};
+      const activity = unwrap<{
+        speciesBreakdown?: Record<string, number>;
+        speciesBreakdownJson?: string | null;
+        harvestedVolumeM3?: string | number;
+        status?: string;
+      }>(response.body);
+      const breakdown = activity.speciesBreakdown ?? (activity.speciesBreakdownJson ? JSON.parse(activity.speciesBreakdownJson) as Record<string, number> : {});
       const speciesTotal = Object.values(breakdown).reduce((total, value) => total + Number(value), 0);
       expect(speciesTotal).toBeCloseTo(18, 2);
     });

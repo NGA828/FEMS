@@ -17,6 +17,9 @@ const SMTP_ENV_KEYS = ['EMAIL_PROVIDER', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 
 function mailServiceWith(env: Partial<Record<(typeof SMTP_ENV_KEYS)[number], string>>): MailServiceType {
   for (const key of SMTP_ENV_KEYS) delete process.env[key];
   Object.assign(process.env, env);
+  // Prevent a developer's .env setting such as EMAIL_PROVIDER=none from
+  // overriding the isolated configuration under test after module reset.
+  if (!Object.prototype.hasOwnProperty.call(env, 'EMAIL_PROVIDER')) process.env.EMAIL_PROVIDER = '';
   jest.resetModules();
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { MailService } = require('./mail.service') as typeof import('./mail.service');

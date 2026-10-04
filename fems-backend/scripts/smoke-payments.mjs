@@ -16,13 +16,13 @@
 import { readFileSync } from 'node:fs';
 
 const BASE = process.env.FEMS_API_URL ?? 'http://127.0.0.1:3000/api/v1';
-const ADMIN_EMAIL = process.env.FEMS_ADMIN_EMAIL ?? 'admin@fems.cm';
+const ADMIN_EMAIL = process.env.FEMS_ADMIN_EMAIL ?? 'demo.admin@fems.cm';
 
 // Demo forest data seeded in the sandbox database. The script only reuses a
 // verified company, a forest and one of its zones — it creates everything else.
-const COMPANY = process.env.FEMS_SMOKE_COMPANY ?? '83a65695-931b-4714-8d62-50b4692cd8f5';
-const FOREST = process.env.FEMS_SMOKE_FOREST ?? 'e2bab3b7-1a9e-4a7a-980e-69ecbe295b61';
-const ZONE = process.env.FEMS_SMOKE_ZONE ?? '89eb1c57-891c-43bd-85fb-b3094975d5e1';
+let COMPANY = process.env.FEMS_SMOKE_COMPANY ?? '';
+let FOREST = process.env.FEMS_SMOKE_FOREST ?? '';
+let ZONE = process.env.FEMS_SMOKE_ZONE ?? '';
 const STAMP = Date.now();
 
 let pass = 0;
@@ -56,13 +56,37 @@ async function call(method, path, { token, body } = {}) {
   return { status: response.status, body: json };
 }
 
+async function selectFixtures(token) {
+  if (!COMPANY) {
+    const response = await call('GET', '/companies?status=VERIFIED&limit=100', { token });
+    const companies = Array.isArray(response.body?.data) ? response.body.data : [];
+    COMPANY = companies.find((company) => company.status === 'VERIFIED')?.id ?? '';
+  }
+
+  if (!FOREST || !ZONE) {
+    const response = await call('GET', '/forests?status=ACTIVE&limit=100', { token });
+    const forests = Array.isArray(response.body?.data) ? response.body.data : [];
+    const candidates = FOREST ? [{ id: FOREST }] : forests;
+
+    for (const forest of candidates) {
+      const zonesResponse = await call('GET', `/forests/${forest.id}/zones?status=ACTIVE&limit=100`, { token });
+      const zones = Array.isArray(zonesResponse.body?.data) ? zonesResponse.body.data : [];
+      const zone = ZONE ? zones.find((candidate) => candidate.id === ZONE && candidate.status === 'ACTIVE') : zones[0];
+      if (!zone) continue;
+      FOREST = forest.id;
+      ZONE = zone.id;
+      break;
+    }
+  }
+}
+
 function adminPassword() {
   if (process.env.FEMS_ADMIN_PASSWORD) return process.env.FEMS_ADMIN_PASSWORD;
   try {
     return readFileSync('/tmp/admin.pw', 'utf8').trim();
   } catch {
-    console.error('Set FEMS_ADMIN_PASSWORD (or create /tmp/admin.pw) before running this smoke test.');
-    process.exit(2);
+    // The default seed account is intended for local development only.
+    return 'FemsDemo#2026';
   }
 }
 
@@ -71,6 +95,18 @@ check('admin login', login.status === 200 || login.status === 201, `HTTP ${login
 const token = login.body?.data?.accessToken ?? login.body?.data?.tokens?.accessToken;
 if (!token) {
   console.error('No access token — aborting.', JSON.stringify(login.body).slice(0, 400));
+  process.exit(1);
+}
+
+await selectFixtures(token);
+const fixturesReady = Boolean(COMPANY && FOREST && ZONE);
+check(
+  'found a verified company, active forest and active zone',
+  fixturesReady,
+  `company=${COMPANY || 'none'} forest=${FOREST || 'none'} zone=${ZONE || 'none'}`,
+);
+if (!fixturesReady) {
+  console.error('No suitable smoke fixtures were found. Seed the database or set FEMS_SMOKE_COMPANY, FEMS_SMOKE_FOREST and FEMS_SMOKE_ZONE.');
   process.exit(1);
 }
 
@@ -148,9 +184,9 @@ check('paying moves the permit to PAYMENT_PENDING', pendingStatus === 'PAYMENT_P
 
 const replay = await call('POST', '/payments', { token, body: paymentBody });
 check(
-  'same clientRef returns the same payment (idempotent)',
-  replay.status === 201 && replay.body?.data?.id === paymentId && replay.body?.data?.duplicate === true,
-  `id match=${replay.body?.data?.id === paymentId} duplicate=${replay.body?.data?.duplicate}`,
+  'same clientRef returns the same sandbox payment (idempotent)',
+  replay.status === 201 && replay.body?.data?.id === paymentId && replay.body?.data?.duplicate === true && replay.body?.data?.sandbox === true,
+  `id match=${replay.body?.data?.id === paymentId} duplicate=${replay.body?.data?.duplicate} sandbox=${replay.body?.data?.sandbox}`,
 );
 
 const overpay = await call('POST', '/payments', {
@@ -180,8 +216,8 @@ const simulate = await call('POST', `/payments/${paymentId}/simulate`, {
 });
 check(
   'POST /payments/:id/simulate → settled',
-  simulate.status === 201 && simulate.body?.data?.status === 'SUCCESSFUL',
-  `HTTP ${simulate.status} status=${simulate.body?.data?.status}`,
+  simulate.status === 201 && simulate.body?.data?.status === 'SUCCESSFUL' && simulate.body?.data?.sandbox === true,
+  `HTTP ${simulate.status} status=${simulate.body?.data?.status} sandbox=${simulate.body?.data?.sandbox}`,
 );
 const receiptNumber = simulate.body?.data?.receiptNumber;
 check('receipt number issued', typeof receiptNumber === 'string' && receiptNumber.startsWith('RCP-'), `receipt=${receiptNumber}`);
