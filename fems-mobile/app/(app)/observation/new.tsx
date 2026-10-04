@@ -19,6 +19,7 @@ import { useNetworkStatus } from '../../../src/hooks/useNetworkStatus';
 import { offlineQueue, newObservationClientRef } from '../../../src/offline/queue';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Button,
   Caption,
@@ -193,7 +194,7 @@ export default function NewObservationScreen() {
             <Title>Observation</Title>
             <Caption tone="muted">What you saw, where you saw it, when.</Caption>
           </View>
-          <Button label="Close" variant="ghost" size="sm" onPress={() => router.back()} />
+          <Button label="Close" variant="ghost" size="sm" onPress={safeGoBack} />
         </Row>
 
         <Card style={{ marginBottom: 14 }}>

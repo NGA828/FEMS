@@ -28,6 +28,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatNumber, humanize, notificationTypeLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen refresh={health.isRefetching ? { refreshing: true, onRefresh: () => health.refetch() } : undefined}>
-      <PageHeader title="Settings" subtitle="Delivery, integrations and system state" onBack={() => router.back()} />
+      <PageHeader title="Settings" subtitle="Delivery, integrations and system state" onBack={safeGoBack} />
 
       <Section title="Notification delivery">
         <Caption tone="muted" style={{ marginBottom: 8 }}>

@@ -20,6 +20,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatDateTime, formatNumber, formatRelative, humanize, riskLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -106,7 +107,7 @@ export default function AnalysisScreen() {
       <PageHeader
         title="Forest intelligence"
         subtitle="Rule-based detection over the register"
-        onBack={() => router.back()}
+        onBack={safeGoBack}
         right={
           hasPermission('ai:alerts_read') ? (
             <Button label="Alerts" size="sm" variant="secondary" icon="warning-outline" onPress={() => router.push('/alerts')} />

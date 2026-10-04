@@ -18,6 +18,7 @@ import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { formatDateTime, formatNumber, parseJson, reportStatusLabel, reportTypeLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -61,7 +62,7 @@ export default function ReportDetailScreen() {
   if (report.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Report" onBack={() => router.back()} />
+        <PageHeader title="Report" onBack={safeGoBack} />
         <SkeletonDetail />
       </Screen>
     );
@@ -70,7 +71,7 @@ export default function ReportDetailScreen() {
   if (report.isError || !report.data) {
     return (
       <Screen>
-        <PageHeader title="Report" onBack={() => router.back()} />
+        <PageHeader title="Report" onBack={safeGoBack} />
         <ErrorState error={report.error} onRetry={() => report.refetch()} title="This report could not be loaded" />
       </Screen>
     );
@@ -127,7 +128,7 @@ export default function ReportDetailScreen() {
 
   return (
     <Screen refresh={report.isRefetching ? { refreshing: true, onRefresh: () => report.refetch() } : undefined}>
-      <PageHeader title={reportTypeLabel(data.type)} subtitle={data.reference} onBack={() => router.back()} />
+      <PageHeader title={reportTypeLabel(data.type)} subtitle={data.reference} onBack={safeGoBack} />
 
       {data.status === 'GENERATING' ? (
         <Notice tone="warning" title="Still generating">

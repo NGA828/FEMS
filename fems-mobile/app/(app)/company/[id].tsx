@@ -28,6 +28,7 @@ import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { companyStatusLabel, companyTypeLabel, documentTypeLabel, formatDateInput, formatDateTime, formatNumber, toIsoDateInput } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -88,7 +89,7 @@ export default function CompanyFileScreen() {
   if (company.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Company" onBack={() => router.back()} />
+        <PageHeader title="Company" onBack={safeGoBack} />
         <SkeletonDetail />
       </Screen>
     );
@@ -97,7 +98,7 @@ export default function CompanyFileScreen() {
   if (company.isError || !company.data) {
     return (
       <Screen>
-        <PageHeader title="Company" onBack={() => router.back()} />
+        <PageHeader title="Company" onBack={safeGoBack} />
         <ErrorState error={company.error} onRetry={() => company.refetch()} title="This company file could not be loaded" />
       </Screen>
     );
@@ -233,7 +234,7 @@ export default function CompanyFileScreen() {
 
   return (
     <Screen refresh={company.isRefetching ? { refreshing: true, onRefresh: () => company.refetch() } : undefined}>
-      <PageHeader title={data.name} subtitle={`${companyTypeLabel(data.type)} · ${companyStatusLabel(data.status)}`} onBack={() => router.back()} />
+      <PageHeader title={data.name} subtitle={`${companyTypeLabel(data.type)} · ${companyStatusLabel(data.status)}`} onBack={safeGoBack} />
 
       {data.isDemo ? (
         <Notice tone="neutral" title="Seeded demo company">

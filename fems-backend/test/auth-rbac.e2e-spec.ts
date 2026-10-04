@@ -58,13 +58,31 @@ describe('Flows — registration, sessions and RBAC (e2e)', () => {
 
     const verified = await ctx.api().post(`${API}/auth/email-verification/verify`).send({ token: registration.verification.developmentCode });
     expect([200, 201]).toContain(verified.status);
-    const session = unwrap<{ user: { status: string }; tokens: { accessToken: string } }>(verified.body);
+    const session = unwrap<{
+      user: { status: string; preferredLanguage: string };
+      tokens: { accessToken: string };
+    }>(verified.body);
     expect(session.user.status).toBe('ACTIVE');
     expect(session.tokens.accessToken).toBeTruthy();
+    expect(session.user.preferredLanguage).toBe('en');
 
     const me = await ctx.api().get(`${API}/auth/me`).set(...bearer(session.tokens.accessToken));
     expect(me.status).toBe(200);
     expect(unwrap<{ email: string }>(me.body).email).toBe(email);
+
+    const french = await ctx.api()
+      .patch(`${API}/auth/me`)
+      .set(...bearer(session.tokens.accessToken))
+      .send({ preferredLanguage: 'fr' });
+    expect(french.status).toBe(200);
+    expect(unwrap<{ preferredLanguage: string }>(french.body).preferredLanguage).toBe('fr');
+
+    const english = await ctx.api()
+      .patch(`${API}/auth/me`)
+      .set(...bearer(session.tokens.accessToken))
+      .send({ preferredLanguage: 'en' });
+    expect(english.status).toBe(200);
+    expect(unwrap<{ preferredLanguage: string }>(english.body).preferredLanguage).toBe('en');
   });
 
   it('refuses a second account on the same address', async () => {

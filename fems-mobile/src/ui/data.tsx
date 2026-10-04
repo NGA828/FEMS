@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { riskColor, spacing } from '../theme/tokens';
 import { useTone } from './context';
+import { useLocale } from '../i18n/context';
 import { Body, Caption, Overline, Tiny } from './text';
 import { Row } from './surface';
 
@@ -357,6 +358,7 @@ export function ScoreRing({
   max?: number;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const safe = Math.max(0, Math.min(max, value ?? 0));
   const radius = size / 2 - 7;
   const circumference = 2 * Math.PI * radius;
@@ -383,7 +385,7 @@ export function ScoreRing({
           {value === null || value === undefined ? '—' : Math.round(safe)}
         </SvgText>
         <SvgText x={size / 2} y={size / 2 + 18} textAnchor="middle" fill={theme.colors.textMuted} fontSize={10}>
-          {label}
+          {translate(label)}
         </SvgText>
       </Svg>
     </View>

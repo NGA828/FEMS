@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForest, useForestZones, useMediaCovers } from '../../../src/api/queries';
 import { useTheme } from '../../../src/theme/theme';
 import { MediaCover } from '../../../src/components/media/MediaCover';
-import { Badge, Body, Button, Caption, Definition, ErrorState, Overline, Row, Section, SkeletonList, StatTile, Title } from '../../../src/ui';
+import { safeGoBack, Badge, Body, Button, Caption, Definition, ErrorState, Overline, Row, Section, SkeletonList, StatTile, Title } from '../../../src/ui';
 import { forestStatusLabel, forestTypeLabel, formatArea, formatVolume } from '../../../src/lib/format';
 
 export default function PublicForestDetail() {
@@ -50,7 +50,7 @@ export default function PublicForestDetail() {
         <MediaCover descriptor={cover} fallbackLabel={data.name} height={260} borderRadius={0} />
         <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4,18,12,0.25)' }} />
         <View style={{ position: 'absolute', top: insets.top + 12, left: 16 }}>
-          <Button label="Back" size="sm" variant="secondary" icon="arrow-back-outline" onPress={() => router.back()} />
+          <Button label="Back" size="sm" variant="secondary" icon="arrow-back-outline" onPress={safeGoBack} />
         </View>
       </View>
 

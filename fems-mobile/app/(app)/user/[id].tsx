@@ -29,6 +29,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatDateTime, formatRelative, humanize, userStatusLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Avatar,
   Badge,
   Body,
@@ -79,7 +80,7 @@ export default function AccountDetailScreen() {
   if (account.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Account" onBack={() => router.back()} />
+        <PageHeader title="Account" onBack={safeGoBack} />
         <SkeletonDetail />
       </Screen>
     );
@@ -88,7 +89,7 @@ export default function AccountDetailScreen() {
   if (account.isError || !account.data) {
     return (
       <Screen>
-        <PageHeader title="Account" onBack={() => router.back()} />
+        <PageHeader title="Account" onBack={safeGoBack} />
         <ErrorState error={account.error} onRetry={() => account.refetch()} title="This account could not be loaded" />
       </Screen>
     );
@@ -252,7 +253,7 @@ export default function AccountDetailScreen() {
       <PageHeader
         title={`${data.firstName} ${data.lastName}`}
         subtitle={data.jobTitle ?? humanize(data.status)}
-        onBack={() => router.back()}
+        onBack={safeGoBack}
       />
 
       {isSelf ? (

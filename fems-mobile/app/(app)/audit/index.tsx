@@ -15,6 +15,7 @@ import { useAuditLog, useAuditSummary } from '../../../src/api/queries';
 import { formatDateTime, formatNumber, formatRelative, humanize } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   BarChart,
   Body,
@@ -133,7 +134,7 @@ export default function AuditTrailScreen() {
       <PageHeader
         title="Audit trail"
         subtitle={actorId ? 'Filtered on one account' : 'Everything FEMS recorded'}
-        onBack={() => router.back()}
+        onBack={safeGoBack}
       />
 
       {summary.data ? (

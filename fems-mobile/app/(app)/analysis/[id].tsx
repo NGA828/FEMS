@@ -15,6 +15,7 @@ import { useAnalysis } from '../../../src/api/queries';
 import { alertStatusLabel, alertTypeLabel, formatDateTime, formatNumber, formatRelative, humanize, riskLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   BarChart,
   Body,
@@ -64,7 +65,7 @@ export default function AnalysisDetailScreen() {
   if (analysis.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Analysis" onBack={() => router.back()} />
+        <PageHeader title="Analysis" onBack={safeGoBack} />
         <SkeletonDetail />
       </Screen>
     );
@@ -73,7 +74,7 @@ export default function AnalysisDetailScreen() {
   if (analysis.isError || !analysis.data) {
     return (
       <Screen>
-        <PageHeader title="Analysis" onBack={() => router.back()} />
+        <PageHeader title="Analysis" onBack={safeGoBack} />
         <ErrorState error={analysis.error} onRetry={() => analysis.refetch()} title="This analysis could not be loaded" />
       </Screen>
     );
@@ -89,7 +90,7 @@ export default function AnalysisDetailScreen() {
 
   return (
     <Screen refresh={analysis.isRefetching ? { refreshing: true, onRefresh: () => analysis.refetch() } : undefined}>
-      <PageHeader title={humanize(data.type)} subtitle={data.id} onBack={() => router.back()} />
+      <PageHeader title={humanize(data.type)} subtitle={data.id} onBack={safeGoBack} />
 
       {data.status === 'FAILED' ? (
         <Notice tone="danger" title="This run failed">

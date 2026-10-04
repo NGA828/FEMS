@@ -8,6 +8,7 @@
 import React from 'react';
 import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 import { useTone } from './context';
+import { useLocale } from '../i18n/context';
 
 type Tone = 'default' | 'muted' | 'faint' | 'primary' | 'accent' | 'danger' | 'warning' | 'success' | 'info' | 'inverted';
 
@@ -45,16 +46,23 @@ function toneColor(tone: Tone, theme: ReturnType<typeof useTone>): string {
   }
 }
 
+function localizeChildren(children: React.ReactNode, translate: (value: string) => string): React.ReactNode {
+  if (typeof children === 'string') return translate(children);
+  if (Array.isArray(children)) return children.map((child) => localizeChildren(child, translate));
+  return children;
+}
+
 function createTextComponent(baseStyle: keyof ReturnType<typeof useTone>['typography']) {
   const Component = ({ tone = 'default', align, lines, style, children, ...rest }: AppTextProps) => {
     const theme = useTone();
+    const { translate } = useLocale();
     return (
       <Text
         numberOfLines={lines}
         style={[theme.typography[baseStyle], { color: toneColor(tone, theme), textAlign: align }, style]}
         {...rest}
       >
-        {children}
+        {localizeChildren(children, translate)}
       </Text>
     );
   };
@@ -75,6 +83,7 @@ export const Mono = createTextComponent('mono');
 /** Small caps label used above values and section headers. */
 export function Overline({ children, tone = 'muted', style, ...rest }: AppTextProps) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <Text
       style={[
@@ -84,7 +93,7 @@ export function Overline({ children, tone = 'muted', style, ...rest }: AppTextPr
       ]}
       {...rest}
     >
-      {children}
+      {localizeChildren(children, translate)}
     </Text>
   );
 }

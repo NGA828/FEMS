@@ -16,6 +16,8 @@ import { appConfig } from '../../src/config/configuration';
 process.env.NODE_ENV = process.env.NODE_ENV ?? 'development';
 process.env.FEMS_ENV = process.env.FEMS_ENV ?? 'development';
 process.env.FEMS_LOG_LEVEL = process.env.FEMS_LOG_LEVEL ?? 'error';
+// E2E flows rely on development codes and must never send email externally.
+process.env.EMAIL_PROVIDER = 'none';
 const throttleLimit = process.env.E2E_THROTTLE_LIMIT ?? '5000';
 process.env.THROTTLE_LIMIT = throttleLimit;
 process.env.THROTTLE_AUTH_LIMIT = throttleLimit;

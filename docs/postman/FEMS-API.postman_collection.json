@@ -234,7 +234,7 @@
               "query": [],
               "variable": []
             },
-            "description": "**POST /auth/register**\nCreate a Forest Explorer or Company Representative account\n\nSelf-service registration only. The account starts as PENDING_VERIFICATION; sign-in is blocked until the emailed code is confirmed. When SMTP is not configured the response reports the real delivery status and (outside production) returns the code so the flow can still be completed.\n\n_Not executed by the walkthrough — the body above is a generated sample._",
+            "description": "**POST /auth/register**\nCreate a Forest Explorer or Company Representative account\n\nSelf-service registration only. The account starts as PENDING_VERIFICATION; sign-in is blocked until the emailed code is confirmed. The response reports the real delivery status and, outside production, returns the code only when email delivery fails or is unavailable.\n\n_Not executed by the walkthrough — the body above is a generated sample._",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"ngono.marie@example.cm\",\n  \"password\": \"Passw0rdFEMS\",\n  \"firstName\": \"Marie\",\n  \"lastName\": \"Ngono\"\n}",

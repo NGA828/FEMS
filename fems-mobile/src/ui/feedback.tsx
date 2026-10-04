@@ -25,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '../api/client';
 import { spacing } from '../theme/tokens';
 import { useTone } from './context';
+import { useLocale } from '../i18n/context';
 import { Body, Caption, Heading, Tiny } from './text';
 import { Button, IconButton } from './controls';
 import { Divider, Row } from './surface';
@@ -268,6 +269,7 @@ const ToastContext = createContext<ToastContextValue>({ show: () => {}, success:
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const theme = useTone();
+  const { translate } = useLocale();
   const counter = useRef(0);
 
   const dismiss = useCallback((id: string) => {
@@ -311,7 +313,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               key={toast.id}
               onPress={() => dismiss(toast.id)}
               accessibilityRole="alert"
-              accessibilityLabel={`${toast.title}. ${toast.description ?? ''}`}
+              accessibilityLabel={translate(`${toast.title}. ${toast.description ?? ''}`)}
               style={{
                 flexDirection: 'row',
                 gap: spacing.sm,
@@ -374,6 +376,7 @@ const ConfirmContext = createContext<ConfirmContextValue>({ confirm: async () =>
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const [state, setState] = useState<{ options: ConfirmOptions; resolve: (result: ConfirmResult) => void } | null>(null);
   const [reason, setReason] = useState('');
 
@@ -421,10 +424,10 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 <TextInput
                   value={reason}
                   onChangeText={setReason}
-                  placeholder={options.reasonPlaceholder ?? 'Explain the decision — recorded in the audit trail'}
+                  placeholder={translate(options.reasonPlaceholder ?? 'Explain the decision — recorded in the audit trail')}
                   placeholderTextColor={theme.colors.textFaint}
                   multiline
-                  accessibilityLabel={options.reasonLabel ?? 'Reason'}
+                  accessibilityLabel={translate(options.reasonLabel ?? 'Reason')}
                   style={{
                     borderWidth: StyleSheet.hairlineWidth,
                     borderColor: theme.colors.border,
@@ -480,9 +483,14 @@ export function ActionSheet({
   onClose: () => void;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(4,18,12,0.55)' }} onPress={onClose} accessibilityLabel="Close menu" />
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(4,18,12,0.55)' }}
+        onPress={onClose}
+        accessibilityLabel={translate('Close menu')}
+      />
       <View
         style={{
           backgroundColor: theme.colors.surfaceElevated,
@@ -514,7 +522,7 @@ export function ActionSheet({
                   onSelect(action.key);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={action.label}
+                accessibilityLabel={translate(action.label)}
                 style={({ pressed }) => ({
                   padding: spacing.lg,
                   backgroundColor: pressed ? theme.colors.surfaceAlt : 'transparent',

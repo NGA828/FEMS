@@ -3,6 +3,7 @@
  * `../../src/ui` so a component can be restyled without touching every screen.
  */
 export { ToneProvider, ToneScope, useTone } from './context';
+export { safeGoBack } from '../navigation/safe-back';
 export {
   Body,
   BodyStrong,

@@ -521,7 +521,7 @@ model User {
   lastLoginAt         DateTime?
   failedLoginCount    Int        @default(0)
   lockedUntil         DateTime?
-  preferredLanguage   String     @default("fr") @db.VarChar(8)
+  preferredLanguage   String     @default("en") @db.VarChar(8)
   companyId           String?    @db.VarChar(36)
   createdById         String?    @db.VarChar(36)
   createdAt           DateTime   @default(now())

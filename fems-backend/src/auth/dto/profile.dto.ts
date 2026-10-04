@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { NotificationChannel, NotificationType } from '@prisma/client';
 
 export class UpdateProfileDto {
@@ -34,10 +34,9 @@ export class UpdateProfileDto {
   @MaxLength(512)
   avatarUrl?: string;
 
-  @ApiPropertyOptional({ enum: ['fr', 'en'] })
+  @ApiPropertyOptional({ enum: ['en', 'fr'] })
   @IsOptional()
-  @IsString()
-  @MaxLength(8)
+  @IsIn(['fr', 'en'])
   preferredLanguage?: string;
 }
 

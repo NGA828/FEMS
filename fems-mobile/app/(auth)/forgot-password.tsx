@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, fieldErrors } from '../../src/api/client';
 import { authApi } from '../../src/api/endpoints';
 import { useTheme } from '../../src/theme/theme';
-import { Body, Button, Caption, Notice, Overline, TextField, Title, useToast } from '../../src/ui';
+import { safeGoBack, Body, Button, Caption, Notice, Overline, TextField, Title, useToast } from '../../src/ui';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
@@ -73,7 +73,7 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 20 }} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={{ marginBottom: 16, alignSelf: 'flex-start' }}>
+        <Pressable onPress={safeGoBack} accessibilityRole="button" accessibilityLabel="Back" style={{ marginBottom: 16, alignSelf: 'flex-start' }}>
           <Caption tone="primary" style={{ fontWeight: '700' }}>
             ‹ Back
           </Caption>

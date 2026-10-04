@@ -290,8 +290,9 @@ See [§6](#6-working-in-the-field-offline-gps-and-photos).
 * **Roles and scope** — your roles and, per module, whether you see *all*, *own* or
   *public* records.
 * **Appearance** — light or dark theme.
-* **Language** — French or English; affects dates, numbers and status labels everywhere,
-  and the language of generated documents and AI answers.
+* **Language** — English by default; French or English can be selected per account. It affects
+  bilingual data labels, dates, numbers, generated documents and AI answers. Most screen copy is
+  currently displayed in English regardless of this preference.
 * **Sessions** — every device currently signed in, with *This device* marked; revoke any of
   them individually.
 * **Security** — change your password (current password required; changing it signs out

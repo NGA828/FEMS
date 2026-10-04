@@ -18,6 +18,7 @@ import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { formatDateTime, formatNumber, formatRelative, reportStatusLabel, reportTypeLabel, toNumber } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -123,7 +124,7 @@ export default function ReportLibraryScreen() {
       <PageHeader
         title="Reports"
         subtitle="Generated from the live register"
-        onBack={() => router.back()}
+        onBack={safeGoBack}
         right={
           hasPermission('reports:create') ? (
             <Button label="New" icon="add-outline" size="sm" onPress={() => router.push('/report/new')} />

@@ -22,6 +22,7 @@ import { useOfflineQueue } from '../../../src/hooks/useOfflineQueue';
 import { newActivityClientRef, offlineQueue } from '../../../src/offline/queue';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -206,7 +207,7 @@ export default function CaptureActivityScreen() {
             <Title>Activity</Title>
             <Caption tone="muted">Declared against an active permit, with the position the device reports.</Caption>
           </View>
-          <Button label="Close" variant="ghost" size="sm" onPress={() => router.back()} />
+          <Button label="Close" variant="ghost" size="sm" onPress={safeGoBack} />
         </Row>
 
         <Card style={{ marginBottom: 14 }}>

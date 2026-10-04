@@ -115,7 +115,7 @@ async function main() {
             lastName,
             status: 'ACTIVE',
             emailVerifiedAt: new Date(),
-            preferredLanguage: 'fr',
+            preferredLanguage: 'en',
           },
         });
 

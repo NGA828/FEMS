@@ -15,6 +15,7 @@ import { useCreateEquipment, useDeleteEquipment, useEquipment, useMyCompany, use
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { equipmentCategoryLabel, equipmentStatusLabel, formatDateInput, formatNumber, formatRelative, toIsoDateInput } from '../../../src/lib/format';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -168,7 +169,7 @@ export default function EquipmentScreen() {
       <PageHeader
         title="Equipment"
         subtitle={mineOnly ? `${myCompany.data?.name ?? 'Your company'} fleet` : 'All declared machinery'}
-        onBack={() => router.back()}
+        onBack={safeGoBack}
         right={canCreate ? <Button label={formOpen ? 'Close' : 'Register'} icon={formOpen ? 'close-outline' : 'add-outline'} size="sm" onPress={() => setFormOpen(!formOpen)} /> : undefined}
       />
 

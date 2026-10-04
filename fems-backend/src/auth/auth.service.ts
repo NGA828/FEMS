@@ -174,7 +174,7 @@ export class AuthService {
           lastName: dto.lastName.trim(),
           phone: dto.phone,
           status: UserStatus.PENDING_VERIFICATION,
-          preferredLanguage: dto.preferredLanguage === 'en' ? 'en' : 'fr',
+          preferredLanguage: dto.preferredLanguage === 'fr' ? 'fr' : 'en',
           companyId,
           userRoles: { create: [{ roleId: role.id }] },
         },
@@ -236,7 +236,8 @@ export class AuthService {
                   ? 'Contact an administrator to activate your account.'
                   : 'The code is returned in this response (non-production) so the flow can be completed.'
               }`,
-        developmentCode: appConfig().isProduction ? undefined : created.rawToken,
+        developmentCode:
+          !appConfig().isProduction && mailResult.status !== 'SENT' ? created.rawToken : undefined,
       },
     };
   }
@@ -514,7 +515,7 @@ export class AuthService {
     return {
       message: 'If the account exists and is not yet verified, a new verification code has been sent.',
       emailDelivery: result.status,
-      developmentCode: appConfig().isProduction ? undefined : rawToken,
+      developmentCode: !appConfig().isProduction && result.status !== 'SENT' ? rawToken : undefined,
     };
   }
 
@@ -556,7 +557,7 @@ export class AuthService {
     return {
       message: GENERIC_RESET_MESSAGE,
       emailDelivery: result.status,
-      developmentCode: appConfig().isProduction ? undefined : rawToken,
+      developmentCode: !appConfig().isProduction && result.status !== 'SENT' ? rawToken : undefined,
     };
   }
 

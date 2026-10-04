@@ -25,6 +25,7 @@ import {
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -196,7 +197,7 @@ export default function ViolationDetailScreen() {
       refreshControl={<RefreshControl refreshing={violation.isRefetching} onRefresh={() => violation.refetch()} tintColor={theme.colors.primary} />}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
+      <Pressable onPress={safeGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
         <Caption tone="primary" style={{ fontWeight: '700' }}>
           ‹ Back
         </Caption>

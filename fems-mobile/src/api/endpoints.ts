@@ -114,7 +114,7 @@ export interface RegisterResult {
     /** How the backend actually delivered the code — never assumed. */
     emailDelivery: 'SENT' | 'NOT_CONFIGURED' | 'FAILED';
     emailDeliveryMessage: string;
-    /** Present outside production when SMTP is unavailable, so the flow stays testable. */
+    /** Present outside production only when email delivery failed or is unavailable. */
     developmentCode?: string;
   };
 }

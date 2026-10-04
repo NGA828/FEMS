@@ -24,6 +24,7 @@ import { downloadAuthenticatedFile } from '../../../src/lib/file-download';
 import { formatDateInput, formatNumber, toIsoDateInput } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -215,7 +216,7 @@ export default function GenerateReportScreen() {
 
   return (
     <Screen>
-      <PageHeader title="New report" subtitle="Built from the live register" onBack={() => router.back()} />
+      <PageHeader title="New report" subtitle="Built from the live register" onBack={safeGoBack} />
 
       <Section title="Report type">
         <Caption tone="muted" style={{ marginBottom: 8 }}>

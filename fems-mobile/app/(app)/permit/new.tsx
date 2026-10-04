@@ -17,6 +17,7 @@ import { useCreatePermit, useForests, useForestZones, useMyCompany, usePermitSta
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -167,7 +168,7 @@ export default function NewPermitScreen() {
             Filed as {user?.company?.name ?? `${user?.firstName} ${user?.lastName}`} · the ministry reviews it after submission
           </Caption>
         </View>
-        <Button label="Cancel" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button label="Cancel" variant="ghost" size="sm" onPress={safeGoBack} />
       </Row>
 
       {failure ? (

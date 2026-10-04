@@ -16,6 +16,7 @@ import { useCreateInspection, useForests, useForestZones, useUsers } from '../..
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Body,
   Button,
   Caption,
@@ -174,7 +175,7 @@ export default function NewInspectionScreen() {
           <Title>Schedule an inspection</Title>
           <Caption tone="muted">The inspector sees it in the field hub and can start it on site with the device GPS.</Caption>
         </View>
-        <Button label="Cancel" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button label="Cancel" variant="ghost" size="sm" onPress={safeGoBack} />
       </Row>
 
       {failure ? (

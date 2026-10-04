@@ -17,6 +17,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { useDevicePosition } from '../../../src/hooks/useDevicePosition';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -167,7 +168,7 @@ export default function ObservationDetailScreen() {
       contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 48 }}
       refreshControl={<RefreshControl refreshing={observation.isRefetching} onRefresh={() => observation.refetch()} tintColor={theme.colors.primary} />}
     >
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
+      <Pressable onPress={safeGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
         <Caption tone="primary" style={{ fontWeight: '700' }}>
           ‹ Back
         </Caption>
