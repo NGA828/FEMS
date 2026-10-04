@@ -1010,7 +1010,7 @@ export class ReportsService {
         { label: 'Resolved', value: String(rows.filter((row) => row.status === 'RESOLVED').length) },
         {
           label: 'Narrative provider used',
-          value: String(rows.filter((row) => row.detector === 'OPENROUTER' || row.detector === 'GEMINI').length),
+          value: String(rows.filter((row) => ['GROQ', 'OPENROUTER', 'GEMINI'].includes(row.detector)).length),
         },
       ],
       notes: [

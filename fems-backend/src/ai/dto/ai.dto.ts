@@ -53,7 +53,7 @@ export class RunAnalysisDto {
   @ApiPropertyOptional({
     default: true,
     description:
-      'When false, the run never calls OpenRouter: the deterministic rule engine produces the findings and the narrative.',
+      'When false, the run never calls Groq: the deterministic rule engine produces the findings and the narrative.',
   })
   @IsOptional()
   @IsBoolean()

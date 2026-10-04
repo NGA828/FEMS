@@ -1,20 +1,21 @@
 import { GroqClient } from './groq.client';
-import { OpenRouterClient } from './openrouter.client';
 import { LlmClient } from './llm.client';
 import { AiNotConfiguredError, AiProviderError } from './llm.types';
 import { resetConfigCache } from '../config/configuration';
 
-/**
- * The provider swap is configuration, not code: these tests pin the resolution
- * rules (`AI_PROVIDER`, inference from the keys), the OpenAI-compatible request
- * Groq expects, and the fact that a free-tier 429 is reported as a quota
- * problem rather than a generic failure.
- */
-
+/** Groq request contract, current model defaults and no-provider fallback. */
 const ORIGINAL_ENV = { ...process.env };
 
 function setEnv(env: Record<string, string | undefined>) {
-  for (const key of ['AI_PROVIDER', 'GROQ_API_KEY', 'GROQ_MODEL', 'GROQ_BASE_URL', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL']) {
+  for (const key of [
+    'AI_PROVIDER',
+    'GROQ_API_KEY',
+    'GROQ_MODEL',
+    'GROQ_BASE_URL',
+    'OPENROUTER_API_KEY',
+    'OPENROUTER_MODEL',
+    'OPENROUTER_BASE_URL',
+  ]) {
     delete process.env[key];
   }
   for (const [key, value] of Object.entries(env)) {
@@ -35,7 +36,7 @@ function mockFetch(body: unknown, init: { status?: number } = {}) {
 }
 
 const completion = (content: string) => ({
-  model: 'llama-3.3-70b-versatile',
+  model: 'openai/gpt-oss-120b',
   choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }],
   usage: { total_tokens: 128 },
 });
@@ -47,25 +48,28 @@ afterEach(() => {
 });
 
 describe('GroqClient', () => {
-  it('reports "not configured" instead of pretending, when there is no key', async () => {
+  it('reports the missing Groq key and never pretends a model is configured', async () => {
     setEnv({ AI_PROVIDER: 'groq' });
     const client = new GroqClient();
 
     expect(client.isConfigured).toBe(false);
-    const description = client.describe();
-    expect(description.provider).toBe('LOCAL_RULE_ENGINE');
-    expect(description.missing).toEqual(['GROQ_API_KEY']);
+    expect(client.describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['GROQ_API_KEY'] });
     await expect(client.generate({ prompt: 'hello' })).rejects.toBeInstanceOf(AiNotConfiguredError);
   });
 
-  it('defaults to the free llama-3.3-70b-versatile model', () => {
+  it('defaults to the current production Groq model', () => {
     setEnv({ AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_test' });
     const client = new GroqClient();
-    expect(client.model).toBe('llama-3.3-70b-versatile');
+    expect(client.model).toBe('openai/gpt-oss-120b');
     expect(client.describe()).toMatchObject({ provider: 'GROQ', configured: true, baseUrl: 'https://api.groq.com/openai/v1' });
   });
 
-  it('calls the OpenAI-compatible endpoint with the key in a header, never the URL', async () => {
+  it('upgrades the retired default model in existing .env files', () => {
+    setEnv({ AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_test', GROQ_MODEL: 'llama-3.3-70b-versatile' });
+    expect(new GroqClient().model).toBe('openai/gpt-oss-120b');
+  });
+
+  it('calls Groq chat completions with the key in a header, never in the URL', async () => {
     setEnv({ AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_secret' });
     const fetchMock = mockFetch(completion('All clear.'));
 
@@ -76,7 +80,7 @@ describe('GroqClient', () => {
     expect(url).not.toContain('gsk_secret');
     expect(init.headers.authorization).toBe('Bearer gsk_secret');
     const body = JSON.parse(init.body);
-    expect(body.model).toBe('llama-3.3-70b-versatile');
+    expect(body.model).toBe('openai/gpt-oss-120b');
     expect(body.messages).toEqual([
       { role: 'system', content: 'Be terse' },
       { role: 'user', content: 'Summarise' },
@@ -100,14 +104,14 @@ describe('GroqClient', () => {
     await expect(new GroqClient().generate({ prompt: 'hi' })).rejects.toThrow(/GROQ_API_KEY.*Invalid API Key/s);
   });
 
-  it('names the free-tier quota when Groq answers 429', async () => {
+  it('names the account/model quota when Groq answers 429', async () => {
     setEnv({ AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_test' });
     mockFetch({ error: { message: 'Rate limit reached for model' } }, { status: 429 });
 
     const error = await new GroqClient().generate({ prompt: 'hi' }).catch((caught) => caught);
     expect(error).toBeInstanceOf(AiProviderError);
     expect(error.status).toBe(429);
-    expect(error.message).toContain('free tier');
+    expect(error.message).toContain('current limits for your account and model');
     expect(error.message).toContain('deterministic rule engine still answers');
   });
 
@@ -126,41 +130,38 @@ describe('GroqClient', () => {
   });
 });
 
-describe('LlmClient — provider resolution', () => {
-  const build = () => new LlmClient(new GroqClient(), new OpenRouterClient());
+describe('LlmClient — Groq-only provider resolution', () => {
+  const build = () => new LlmClient(new GroqClient());
 
-  it('uses Groq when only a Groq key is present', () => {
+  it('uses Groq when a Groq key is present', () => {
     setEnv({ GROQ_API_KEY: 'gsk_test' });
     expect(build().provider).toBe('groq');
     expect(build().describe().provider).toBe('GROQ');
   });
 
-  it('uses OpenRouter when only an OpenRouter key is present', () => {
-    setEnv({ OPENROUTER_API_KEY: 'sk-or-test' });
-    const client = build();
-    expect(client.provider).toBe('openrouter');
-    expect(client.describe().provider).toBe('OPENROUTER');
-  });
-
-  it('prefers Groq when both keys are present and nothing is pinned', () => {
-    setEnv({ GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
-    expect(build().provider).toBe('groq');
-  });
-
-  it('honours an explicit AI_PROVIDER over the keys that happen to be set', () => {
-    setEnv({ AI_PROVIDER: 'openrouter', GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
-    expect(build().provider).toBe('openrouter');
-  });
-
-  it('falls back to the rule engine when the selected provider has no key', () => {
-    setEnv({ AI_PROVIDER: 'openrouter', GROQ_API_KEY: 'gsk_test' });
+  it('never uses an OpenRouter key, even when legacy settings request it', async () => {
+    setEnv({ AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'sk-or-test' });
     const client = build();
     expect(client.provider).toBe('none');
-    expect(client.isConfigured).toBe(false);
-    expect(client.describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['OPENROUTER_API_KEY'] });
+    expect(client.describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['GROQ_API_KEY'] });
+    await expect(client.generate({ prompt: 'hi' })).rejects.toBeInstanceOf(AiNotConfiguredError);
   });
 
-  it('treats AI_PROVIDER=none as a deliberate choice, not a misconfiguration', async () => {
+  it('uses Groq, not OpenRouter, when both keys are present or AI_PROVIDER is legacy', () => {
+    setEnv({ AI_PROVIDER: 'openrouter', GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
+    const client = build();
+    expect(client.provider).toBe('groq');
+    expect(client.describe().provider).toBe('GROQ');
+  });
+
+  it('falls back to the rule engine when no Groq key is set', () => {
+    setEnv({ AI_PROVIDER: 'groq', OPENROUTER_API_KEY: 'sk-or-test' });
+    expect(build().provider).toBe('none');
+    expect(build().isConfigured).toBe(false);
+    expect(build().describe()).toMatchObject({ provider: 'LOCAL_RULE_ENGINE', missing: ['GROQ_API_KEY'] });
+  });
+
+  it('treats AI_PROVIDER=none as a deliberate choice', async () => {
     setEnv({ AI_PROVIDER: 'none', GROQ_API_KEY: 'gsk_test' });
     const client = build();
     expect(client.provider).toBe('none');
@@ -169,10 +170,11 @@ describe('LlmClient — provider resolution', () => {
     await expect(client.generate({ prompt: 'hi' })).rejects.toBeInstanceOf(AiNotConfiguredError);
   });
 
-  it('routes the call to Groq when Groq is in force', async () => {
-    setEnv({ GROQ_API_KEY: 'gsk_test' });
+  it('routes the call to Groq', async () => {
+    setEnv({ GROQ_API_KEY: 'gsk_test', OPENROUTER_API_KEY: 'sk-or-test' });
     const fetchMock = mockFetch(completion('Routed.'));
     const result = await build().generate({ prompt: 'hi' });
+    expect(fetchMock.mock.calls).toHaveLength(1);
     expect(fetchMock.mock.calls[0][0]).toContain('api.groq.com');
     expect(result.text).toBe('Routed.');
   });

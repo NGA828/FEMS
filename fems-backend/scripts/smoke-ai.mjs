@@ -19,10 +19,10 @@
 import { readFileSync } from 'node:fs';
 
 const BASE = process.env.FEMS_API_URL ?? 'http://127.0.0.1:3000/api/v1';
-const ADMIN_EMAIL = process.env.FEMS_ADMIN_EMAIL ?? 'admin@fems.cm';
-const COMPANY_USER_EMAIL = process.env.FEMS_SMOKE_COMPANY_EMAIL ?? 'env-smoke-company@fems.cm';
-const COMPANY_USER_PASSWORD = 'FemsSmoke-Env9';
-const COMPANY = process.env.FEMS_SMOKE_COMPANY ?? '83a65695-931b-4714-8d62-50b4692cd8f5';
+const ADMIN_EMAIL = process.env.FEMS_ADMIN_EMAIL ?? 'demo.admin@fems.cm';
+const COMPANY_USER_EMAIL = process.env.FEMS_SMOKE_COMPANY_EMAIL ?? 'demo.company@fems.cm';
+const COMPANY_USER_PASSWORD = process.env.FEMS_SMOKE_COMPANY_PASSWORD ?? 'FemsDemo#2026';
+let COMPANY = process.env.FEMS_SMOKE_COMPANY ?? '';
 
 let pass = 0;
 let fail = 0;
@@ -74,8 +74,8 @@ function adminPassword() {
   try {
     return readFileSync('/tmp/admin.pw', 'utf8').trim();
   } catch {
-    console.error('Set FEMS_ADMIN_PASSWORD (or create /tmp/admin.pw) before running this smoke test.');
-    process.exit(2);
+    // The default seed account is intended for local development only.
+    return 'FemsDemo#2026';
   }
 }
 
@@ -105,6 +105,17 @@ if (!companyToken) {
   }
 }
 check('company representative login', Boolean(companyToken), companyToken ? 'token issued' : `HTTP ${companyLogin.status} ${companyLogin.body?.error?.code}`);
+if (!companyToken) {
+  console.error('Seed a company account or set FEMS_SMOKE_COMPANY_EMAIL and FEMS_SMOKE_COMPANY_PASSWORD.');
+  process.exit(1);
+}
+const ownCompany = await call('GET', '/companies/me', { token: companyToken });
+if (!COMPANY) COMPANY = ownCompany.body?.data?.id ?? '';
+check('company account is linked to its own company', ownCompany.status === 200 && COMPANY && ownCompany.body?.data?.id === COMPANY, `companyId=${COMPANY || 'none'}`);
+if (!COMPANY) {
+  console.error('Set FEMS_SMOKE_COMPANY to the company ID linked to the smoke-test account.');
+  process.exit(1);
+}
 
 console.log('\n— module status —');
 const status = await call('GET', '/ai/status', { token });
@@ -113,8 +124,9 @@ check(
   'the module reports the provider configuration honestly',
   typeof status.body?.data?.providerConfigured === 'boolean' &&
     (status.body.data.providerConfigured
-      ? status.body.data.provider === 'OPENROUTER'
-      : status.body.data.provider === 'LOCAL_RULE_ENGINE' && status.body.data.message.includes('OPENROUTER_API_KEY')),
+      ? status.body.data.provider === 'GROQ'
+      : status.body.data.provider === 'LOCAL_RULE_ENGINE' &&
+        (status.body.data.message.includes('GROQ_API_KEY') || status.body.data.message.includes('AI_PROVIDER=none'))),
   `provider=${status.body?.data?.provider} configured=${status.body?.data?.providerConfigured}`,
 );
 check(
@@ -144,10 +156,10 @@ check(
   (catalogue.body?.data?.assistantSections ?? []).map((section) => section.key).join(', '),
 );
 
-console.log('\n— running the deterministic engine (no provider configured) —');
+console.log('\n— running the deterministic engine (model call disabled) —');
 const analysis = await call('POST', '/ai/analyses', {
   token,
-  body: { type: 'RISK_ASSESSMENT', periodDays: 365 },
+  body: { type: 'RISK_ASSESSMENT', periodDays: 365, useProvider: false },
 });
 const run = analysis.body?.data;
 check('POST /ai/analyses', analysis.status === 201, `HTTP ${analysis.status} ${analysis.body?.error?.code ?? ''}`);
@@ -179,8 +191,8 @@ check(
   `${run?.alerts} new alert(s)`,
 );
 check(
-  'the empty-provider situation is stated instead of faked',
-  JSON.stringify(run?.notes ?? []).includes('OPENROUTER_API_KEY is empty'),
+  'the rule-only run states its execution mode',
+  run?.provider === 'LOCAL_RULE_ENGINE' && JSON.stringify(run?.notes ?? []).includes('deterministic rule engine produced every risk level'),
   JSON.stringify(run?.notes ?? []).slice(0, 120),
 );
 check(
@@ -191,7 +203,7 @@ check(
 const firstAlertId = run?.result?.alertsRaised?.[0]?.id ?? null;
 
 console.log('\n— repeating the run does not flood the console —');
-const repeat = await call('POST', '/ai/analyses', { token, body: { type: 'RISK_ASSESSMENT', periodDays: 365 } });
+const repeat = await call('POST', '/ai/analyses', { token, body: { type: 'RISK_ASSESSMENT', periodDays: 365, useProvider: false } });
 check(
   'a second run raises no duplicate alert for an open signal',
   repeat.status === 201 && (repeat.body?.data?.alerts ?? 1) === 0 && Number(repeat.body?.data?.duplicatesSkipped) > 0,
@@ -217,7 +229,8 @@ const alerts = Array.isArray(alertList.body?.data) ? alertList.body.data : [];
 check('GET /ai/alerts', alertList.status === 200 && alerts.length > 0, `HTTP ${alertList.status} items=${alerts.length}`);
 check(
   'every row carries its review position and the actions available',
-  alerts.every((alert) => alert.review && typeof alert.review.requiresHumanDecision === 'boolean' && Array.isArray(alert.actions)),
+  alerts.every((alert) => alert.review && typeof alert.review.requiresHumanDecision === 'boolean' && Array.isArray(alert.actions)) &&
+    typeof alertList.body?.reviewSlaHours === 'number',
   `reviewSlaHours=${alertList.body?.reviewSlaHours}`,
 );
 check(
@@ -403,10 +416,13 @@ console.log('\n— forest assistant —');
 const ask = await call('POST', '/ai/assistant/ask', { token, body: { question: 'Quels permis sont actifs ?' } });
 check('POST /ai/assistant/ask', ask.status === 201, `HTTP ${ask.status} ${ask.body?.error?.code ?? ''}`);
 check(
-  'the answer states that no provider is configured instead of pretending',
-  ask.body?.data?.providerConfigured === false && ask.body?.data?.provider === 'LOCAL_RULE_ENGINE' &&
-    String(ask.body?.data?.answer ?? '').includes('OPENROUTER_API_KEY is not configured'),
-  `provider=${ask.body?.data?.provider}`,
+  'the assistant reports the actual Groq or rule-engine path',
+  ask.body?.data?.providerConfigured === status.body?.data?.providerConfigured &&
+    (status.body?.data?.providerConfigured
+      ? ask.body?.data?.provider === 'GROQ'
+      : ask.body?.data?.provider === 'LOCAL_RULE_ENGINE' &&
+        (String(ask.body?.data?.answer ?? '').includes('GROQ_API_KEY') || String(ask.body?.data?.answer ?? '').includes('AI_PROVIDER=none'))),
+  `provider=${ask.body?.data?.provider} model=${ask.body?.data?.model}`,
 );
 check(
   'the answer is computed from real records, with references',

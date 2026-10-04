@@ -65,9 +65,11 @@ export default function PaymentDetailScreen() {
   const refund = useRefundPayment(id ?? '');
 
   const data = payment.data;
-  const sandbox = provider.data?.provider === 'SIMULATOR';
+  const sandbox = data?.provider === 'SIMULATOR';
+  const sandboxProvider = provider.data?.provider === 'SIMULATOR';
   const canVerify = hasPermission('payments:verify');
-  const canRefund = hasPermission('payments:refund') || hasPermission('payments:update');
+  const canSimulate = canVerify && sandbox && sandboxProvider;
+  const canRefund = hasPermission('payments:refund');
   const canDownloadReceipt = hasPermission('payments:download_receipt');
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
 
@@ -147,8 +149,7 @@ export default function PaymentDetailScreen() {
       {pending && data.provider === 'SIMULATOR' ? (
         <View style={{ marginBottom: 14 }}>
           <Notice tone="warning" title="Waiting on the sandbox provider">
-            This transaction was created with the local simulator. Confirm it here to see the real state machine — or mark it failed to exercise the failure path.
-            With Campay credentials configured, this control is not shown and the provider is the only source of truth.
+            This transaction is a clearly labelled sandbox record: no money moves. An authorised officer must record its simulated outcome; real Campay transactions are verified with Campay instead.
           </Notice>
         </View>
       ) : null}
@@ -161,16 +162,18 @@ export default function PaymentDetailScreen() {
         </View>
       ) : null}
 
-      {canVerify || (sandbox && pending) ? (
-        <Section title="Provider actions">
+      {canVerify && pending && (!sandbox || sandboxProvider) ? (
+        <Section title={sandbox ? 'Sandbox actions' : 'Provider actions'}>
           <Card>
             <Caption tone="muted" style={{ marginBottom: 10 }}>
-              Verifying asks the backend to query {data.provider === 'SIMULATOR' ? 'the simulator' : 'Campay'} again and to store whatever comes back.
+              {sandbox
+                ? 'No money moves in the simulator. Record a clearly labelled test outcome to exercise the payment and permit lifecycle.'
+                : 'The backend asks Campay for the authoritative transaction status; the app cannot mark a real payment successful.'}
             </Caption>
             <Row gap={8} wrap>
-              {canVerify ? (
+              {!sandbox ? (
                 <Button
-                  label="Verify with provider"
+                  label="Verify with Campay"
                   icon="refresh-circle-outline"
                   loading={verify.isPending}
                   onPress={() =>
@@ -181,7 +184,7 @@ export default function PaymentDetailScreen() {
                   }
                 />
               ) : null}
-              {sandbox && pending ? (
+              {canSimulate ? (
                 <>
                   <Button
                     label="Sandbox: mark successful"
@@ -270,11 +273,11 @@ export default function PaymentDetailScreen() {
         </Card>
       </Section>
 
-      {canRefund && (data.status === 'SUCCESSFUL' || data.status === 'PENDING') ? (
+      {canRefund && data.status === 'SUCCESSFUL' ? (
         <Section title="Refund">
           <Card>
             <Caption tone="muted" style={{ marginBottom: 10 }}>
-              A refund is sent back through the same provider. The reason you give is stored with the payment and shown on the receipt.
+              Record a refund here only after the funds have actually been returned through the payment channel. FEMS stores the reason and marks the payment as refunded; it does not send a provider refund request.
             </Caption>
             <Button
               label="Refund this payment"
@@ -284,7 +287,7 @@ export default function PaymentDetailScreen() {
               onPress={async () => {
                 const answer = await confirm({
                   title: 'Refund payment',
-                  message: `${formatCurrency(data.amount, data.currency ?? 'XAF', language)} will be sent back to the payer.`,
+                  message: `Record ${formatCurrency(data.amount, data.currency ?? 'XAF', language)} as refunded after the payer has received the money back. FEMS will not send the refund itself.`,
                   confirmLabel: 'Refund',
                   destructive: true,
                   requireReason: true,
@@ -295,7 +298,7 @@ export default function PaymentDetailScreen() {
                 if (!answer.confirmed || !answer.reason) return;
                 try {
                   await refund.mutateAsync(answer.reason);
-                  toast.success('Refund requested', 'The provider reference is stored on the payment.');
+                  toast.success('Refund recorded', 'The payment status and refund reason have been saved.');
                 } catch (error) {
                   toast.error('Refund refused', error instanceof ApiError ? error.message : undefined);
                 }

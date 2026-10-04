@@ -55,7 +55,7 @@ export default function NewPaymentScreen() {
   const language = user?.preferredLanguage === 'fr' ? 'fr' : 'en';
 
   const provider = usePaymentProvider();
-  const permits = usePermits({ status: 'ACTIVE', limit: 50 });
+  const permits = usePermits({ status: 'PAYMENT_PENDING', limit: 50 });
   const violations = useViolations({ status: 'CONFIRMED', limit: 25 });
   const initiate = useInitiatePayment();
 

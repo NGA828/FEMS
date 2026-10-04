@@ -386,7 +386,7 @@ export class SystemService {
     const disabled = status.selected === 'none';
     return {
       key: 'ai',
-      label: `AI provider (${status.selected === 'openrouter' ? 'OpenRouter' : status.selected === 'none' ? 'disabled' : 'Groq'})`,
+      label: `AI provider (${status.selected === 'none' ? 'disabled' : 'Groq'})`,
       state: status.configured ? 'READY' : disabled ? 'DISABLED' : 'MISCONFIGURED',
       summary: status.configured
         ? `${status.provider} ${status.model} writes assistant answers and narrative analyses. The deterministic rule engine runs regardless.`
@@ -397,11 +397,11 @@ export class SystemService {
       details: {
         selected: status.selected,
         model: status.model,
-        baseUrl: status.selected === 'openrouter' ? ai.openRouterBaseUrl : ai.groqBaseUrl,
+        baseUrl: ai.groqBaseUrl,
         ruleEngine: true,
         freeTierNote:
           status.selected === 'groq'
-            ? 'GroqCloud free tier: 30 requests/minute with a per-model daily token budget. A 429 means the quota is spent, not that FEMS is broken.'
+            ? 'Groq request and token quotas vary by account and model. Check the current limits in the Groq console; a 429 is a provider limit, and FEMS continues with its rule engine.'
             : undefined,
       },
     };

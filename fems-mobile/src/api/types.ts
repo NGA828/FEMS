@@ -887,7 +887,7 @@ export interface AiRule {
 
 export interface AiStatus {
   provider: AiProvider;
-  /** True when a model provider (Groq or OpenRouter) holds a key on the server. */
+  /** True when the Groq key is configured on the server. */
   providerConfigured: boolean;
   model: string;
   deterministicEngine: {

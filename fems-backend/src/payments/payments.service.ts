@@ -161,7 +161,16 @@ export class PaymentsService {
   async initiate(user: AuthenticatedUser, dto: InitiatePaymentDto) {
     if (dto.clientRef) {
       const existing = await this.prisma.payment.findUnique({ where: { clientRef: dto.clientRef }, include: PAYMENT_INCLUDE });
-      if (existing) return { payment: existing, duplicate: true };
+      if (existing) {
+        this.assertVisible(user, existing);
+        const sandbox = existing.provider === PaymentProvider.SIMULATOR;
+        return {
+          payment: existing,
+          duplicate: true,
+          sandbox,
+          ...(sandbox ? { instructions: this.simulator.instructions } : {}),
+        };
+      }
     }
 
     const method = dto.method;
@@ -366,6 +375,7 @@ export class PaymentsService {
   async verify(user: AuthenticatedUser, id: string, dto: VerifyPaymentDto) {
     const payment = await this.prisma.payment.findUnique({ where: { id }, include: PAYMENT_INCLUDE });
     if (!payment) throw new NotFoundException({ code: 'PAYMENT_NOT_FOUND', message: 'Payment not found.' });
+    this.assertVisible(user, payment);
     if (payment.status === PaymentStatus.SUCCESSFUL) {
       return { payment, verification: { status: 'ALREADY_VERIFIED', message: 'This payment is already settled.' } };
     }
@@ -431,6 +441,7 @@ export class PaymentsService {
     }
     const payment = await this.prisma.payment.findUnique({ where: { id }, include: PAYMENT_INCLUDE });
     if (!payment) throw new NotFoundException({ code: 'PAYMENT_NOT_FOUND', message: 'Payment not found.' });
+    this.assertVisible(user, payment);
     if (payment.provider !== PaymentProvider.SIMULATOR) {
       throw new BadRequestException({
         code: 'PAYMENT_NOT_SANDBOX',
@@ -474,6 +485,7 @@ export class PaymentsService {
   async refund(user: AuthenticatedUser, id: string, notes?: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id }, include: PAYMENT_INCLUDE });
     if (!payment) throw new NotFoundException({ code: 'PAYMENT_NOT_FOUND', message: 'Payment not found.' });
+    this.assertVisible(user, payment);
     if (!canRefund(payment.status)) {
       throw new ConflictException({
         code: 'PAYMENT_NOT_REFUNDABLE',
