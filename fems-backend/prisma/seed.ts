@@ -1057,7 +1057,7 @@ const USERS: UserSpec[] = [
     phone: '+237 655 00 11 22',
     jobTitle: 'Administratrice FEMS — MINFOF',
     role: 'ADMINISTRATOR',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'officer',
@@ -1067,7 +1067,7 @@ const USERS: UserSpec[] = [
     phone: '+237 677 30 44 51',
     jobTitle: 'Chef de service provincial des forêts — Est',
     role: 'GOVERNMENT_FOREST_OFFICER',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'environment',
@@ -1087,7 +1087,7 @@ const USERS: UserSpec[] = [
     phone: '+237 690 18 76 33',
     jobTitle: 'Inspecteur forestier — Délégation du Sud',
     role: 'FOREST_INSPECTOR',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'operator',
@@ -1109,7 +1109,7 @@ const USERS: UserSpec[] = [
     jobTitle: 'Responsable juridique — Scierie Moderne du Dja',
     role: 'COMPANY_REPRESENTATIVE',
     companyKey: 'smds',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'company2',
@@ -1120,7 +1120,7 @@ const USERS: UserSpec[] = [
     jobTitle: 'Président — COFCOM Mindourou',
     role: 'COMPANY_REPRESENTATIVE',
     companyKey: 'cofcom',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'company3',
@@ -1131,7 +1131,7 @@ const USERS: UserSpec[] = [
     jobTitle: "Responsable exploitation — Exploitation Forestière de l'Est",
     role: 'COMPANY_REPRESENTATIVE',
     companyKey: 'efe',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'company4',
@@ -1142,7 +1142,7 @@ const USERS: UserSpec[] = [
     jobTitle: 'Directeur — Bois du Sud Cameroun SARL',
     role: 'COMPANY_REPRESENTATIVE',
     companyKey: 'bsc',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
   {
     key: 'company5',
@@ -1163,7 +1163,7 @@ const USERS: UserSpec[] = [
     phone: '+237 690 40 62 77',
     jobTitle: 'Étudiante en foresterie — Mbalmayo',
     role: 'FOREST_EXPLORER',
-    preferredLanguage: 'fr',
+    preferredLanguage: 'en',
   },
 ];
 

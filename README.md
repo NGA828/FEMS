@@ -8,6 +8,14 @@ FEMS is a full-stack forestry management platform with:
 
 This repository is not just a UI mockup: the backend, Prisma schema, permissions, payments, GIS, inspections, AI, and mobile app are all wired together.
 
+## Documentation
+
+| Document | Who it is for |
+|---|---|
+| [User Guide](./docs/USER-GUIDE.md) | Everyone who uses FEMS: roles, every screen, and nine step-by-step workflows |
+| [User Guide (PDF)](./docs/FEMS-User-Guide.pdf) | The same guide typeset for printing or sharing. Rebuild it after editing the Markdown with `python3 docs/tools/render-user-guide-pdf.py` |
+| [Postman collection & API screenshots](./docs/postman/README.md) | Anyone integrating with or testing the API — 194 requests, 104 screenshots of real responses |
+
 ## Prerequisites
 
 Before you start, install:
@@ -52,22 +60,20 @@ PAYMENT_PROVIDER="simulator"
 
 ### Enable the conversational Forest Assistant
 
-The mobile app includes the Forest Assistant. Without an OpenRouter key it
-answers from the deterministic FEMS rule engine; to enable model-backed
-assistant answers and analysis summaries, create an OpenRouter API key and add
-it to `fems-backend\.env`:
+FEMS sends model-backed assistant answers and analysis summaries to **Groq only**.
+Set these values in `fems-backend/.env` and restart the API:
 
 ```env
-OPENROUTER_API_KEY="your-key"
-OPENROUTER_MODEL="openrouter/auto"
+AI_PROVIDER=groq
+GROQ_API_KEY=gsk_your_key_here
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-Restart the backend after changing `.env`. The key stays on the backend and is
-never sent to the mobile app. Each reply uses the caller's currently authorised
-FEMS records; follow-up turns are included only while the conversation's data
-scope and permissions remain unchanged. Never commit `.env` or share the key.
-Set `OPENROUTER_MODEL` to a specific OpenRouter model ID if you do not want
-OpenRouter to select a model automatically.
+The API key stays on the backend and is never sent to the mobile app. If no Groq
+key is configured, FEMS continues to answer from its deterministic rule engine
+and reports that fallback honestly. Each reply uses only records the caller is
+authorized to read; follow-up turns are included only while the conversation's
+data scope and permissions remain unchanged. Never commit `.env` or share the key.
 
 The default XAMPP database config is:
 
@@ -278,6 +284,7 @@ Make sure the backend is running on port 3000 and that `EXPO_PUBLIC_API_URL` poi
 
 ## Notes
 
+- New to FEMS? Start with the [User Guide](./docs/USER-GUIDE.md).
 - Do not commit secrets to source control.
 - The backend expects environment variables from [fems-backend/.env.example](./fems-backend/.env.example).
 - Payment integrations default to a simulator in local development unless you configure Campay credentials.
@@ -401,79 +408,73 @@ Scheduled jobs (`permit-lifecycle`, `ai-risk-sweep`,
 In the mobile app: **Settings → System monitoring**, also reachable from the
 dashboard's Administration block and the module catalogue.
 
-## AI provider (Groq — free tier)
+## AI provider (Groq)
 
-FEMS uses **GroqCloud** by default. The deterministic rule engine always
-computes the findings; the model only writes the narrative around them, so the
-system works with or without a key — it just says which one it is doing.
+FEMS sends model-backed assistant replies and analysis narratives to **Groq only**.
+The deterministic rule engine always computes findings and continues to answer
+when no Groq key is configured, so a missing key never takes the API offline.
+New model-backed calls are recorded as `GROQ`; a deliberate `AI_PROVIDER=none`
+uses `LOCAL_RULE_ENGINE`. OpenRouter settings are ignored.
 
-### 1) Create a free Groq API key
+### 1) Create a Groq API key
 
-1. Sign up at **https://console.groq.com** (email or Google/GitHub, no credit card).
-2. Open **API Keys → Create API key**, copy it — it starts with `gsk_` and is
-   shown only once.
+Create an API key in the Groq console at **https://console.groq.com/keys**.
+The key is server-side only: never put it in the Expo app or commit it to Git.
 
-### 2) Put the key in the backend `.env`
+### 2) Configure the backend
 
-`fems-backend/.env` (never commit it):
+Set these values in `fems-backend/.env`:
 
 ```env
 AI_PROVIDER=groq
 GROQ_API_KEY=gsk_your_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 AI_REQUEST_TIMEOUT_MS=30000
 AI_MAX_OUTPUT_TOKENS=2048
 ```
 
-Free models to choose from (all free, the trade-off is the daily budget):
+`openai/gpt-oss-120b` is the current default Groq production model; `openai/gpt-oss-20b`
+is a smaller alternative. Groq's active models and quotas can change, so use the
+verification command below rather than copying old model IDs or quota tables.
+Legacy `.env` files that still name the retired `llama-3.3-70b-versatile`,
+`llama-3.1-8b-instant` or `qwen/qwen3.6-27b` IDs are automatically redirected to
+their supported replacements.
 
-| `GROQ_MODEL` | Why pick it | Free-tier budget |
-|---|---|---|
-| `llama-3.3-70b-versatile` **(default)** | best quality for analyses and the assistant | 30 req/min · 1 000 req/day · 100K tokens/day |
-| `llama-3.1-8b-instant` | highest volume, fastest | 30 req/min · 14 400 req/day · 500K tokens/day |
-| `openai/gpt-oss-120b` | strong, supports prompt caching | 30 req/min · 1 000 req/day · 200K tokens/day |
-| `openai/gpt-oss-20b` | lighter alternative | 30 req/min · 1 000 req/day · 200K tokens/day |
-
-Quotas are Groq's published free-tier limits and can change; `npm run ai:verify`
-always lists what your own key can actually use.
-
-### 3) Verify it works
+### 3) Verify the key and model
 
 ```bash
 cd fems-backend
-npm run ai:verify           # key + the models your account can use + one real call
-npm run ai:verify -- --list # no generation request, just the model list
+npm run ai:verify           # validate key, list active models, make one real call
+npm run ai:verify -- --list # validate key and list active models only
 ```
 
-A successful run prints the models, the latency and the model's reply. Failures
-are explicit rather than generic: a refused key (401) points at `GROQ_API_KEY`,
-an unknown model (404) points at `GROQ_MODEL` and lists the valid ids, and a
-spent quota (429) says so and reminds you the rule engine still answers.
+A successful run prints the active models, latency and a short reply. Failures
+are actionable: HTTP 401 points at `GROQ_API_KEY`, HTTP 404 points at `GROQ_MODEL`,
+and HTTP 429 identifies a Groq rate/quota limit. The rule engine remains available
+while you fix provider settings. Restart the API after changing `.env`.
 
-Then restart the API — configuration is read at boot. Administrators can check
-the state in the app at **Settings → Artificial intelligence**, or over HTTP at
-`GET /api/v1/ai/status` and `GET /api/v1/system/integrations`.
+Administrators can check the live configuration in **Settings → Artificial
+intelligence**, `GET /api/v1/ai/status`, or `GET /api/v1/system/integrations`.
 
-### Switching provider, or turning the model off
+### Provider selection
 
 | `.env` | Effect |
 |---|---|
-| `AI_PROVIDER=groq` + `GROQ_API_KEY` | Groq answers (default) |
-| `AI_PROVIDER=openrouter` + `OPENROUTER_API_KEY` | OpenRouter answers |
-| `AI_PROVIDER=none` | No model is ever called; the deterministic rule engine answers everything |
-| `AI_PROVIDER` empty | Inferred from whichever key is set, preferring Groq |
+| `AI_PROVIDER=groq` (default) + `GROQ_API_KEY` | Groq answers using `GROQ_MODEL` |
+| `AI_PROVIDER=groq` without a key | Deterministic FEMS rule-engine answers; status reports `GROQ_API_KEY` missing |
+| `AI_PROVIDER=none` | No external model call; deterministic FEMS rule-engine answers |
+| Legacy `AI_PROVIDER=openrouter` or `OPENROUTER_API_KEY` | Ignored; this build never sends requests to OpenRouter |
 
-Whichever is in force is recorded on every analysis and assistant message
-(`provider` = `GROQ`, `OPENROUTER` or `LOCAL_RULE_ENGINE`), so an answer can always
-be traced back to what produced it.
+Only authorised FEMS records are sent to Groq. Regulatory findings are computed
+by FEMS rules; Groq writes narrative text and never makes officer decisions.
 
 ### Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
-| `GROQ_API_KEY is empty` | The key is missing from `fems-backend/.env`, or the API was not restarted after adding it. |
-| `HTTP 401 Invalid API Key` | The key was revoked or mistyped (it must start with `gsk_`). Create a new one in the Groq console. |
-| `HTTP 404 model not found` | `GROQ_MODEL` is not served to your account — run `npm run ai:verify -- --list` and copy an id from the list. |
-| `HTTP 429 rate limit` | Free tier exhausted (30 req/min, or the daily token budget — it resets at 00:00 UTC). Switch to `llama-3.1-8b-instant` for volume. FEMS keeps answering with the rule engine meanwhile. |
-| Answers say "rule engine only" | No provider key is configured, or `AI_PROVIDER=none`. |
+| `GROQ_API_KEY is empty` | Add a Groq key to `fems-backend/.env` and restart the API. |
+| `HTTP 401 Invalid API Key` | The key was revoked or mistyped. Create a replacement in the Groq console. |
+| `HTTP 404 model not found` | Run `npm run ai:verify -- --list` and set `GROQ_MODEL` to an active model ID. |
+| `HTTP 429 rate limit` | Check the account's current Groq usage and wait for its quota window to reset. FEMS continues with the rule engine meanwhile. |
+| Answers say "rule engine only" | No Groq key is configured or `AI_PROVIDER=none` is selected. |

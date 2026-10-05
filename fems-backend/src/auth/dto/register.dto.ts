@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -91,10 +92,9 @@ export class RegisterDto {
   @Matches(/^\+?[0-9\s-]{8,20}$/)
   companyPhone?: string;
 
-  @ApiPropertyOptional({ example: 'fr', enum: ['fr', 'en'] })
+  @ApiPropertyOptional({ example: 'en', enum: ['en', 'fr'] })
   @IsOptional()
-  @IsString()
-  @MaxLength(8)
+  @IsIn(['fr', 'en'])
   preferredLanguage?: string;
 }
 

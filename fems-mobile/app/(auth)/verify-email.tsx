@@ -64,8 +64,9 @@ export default function VerifyEmailScreen() {
     try {
       const response = await authApi.resendVerification(email.trim().toLowerCase());
       const delivered = response.emailDelivery === 'SENT';
-      setResent({ delivered, message: response.message, code: response.developmentCode });
-      if (response.developmentCode) setCode(response.developmentCode);
+      const developmentCode = delivered ? undefined : response.developmentCode;
+      setResent({ delivered, message: response.message, code: developmentCode });
+      setCode(developmentCode ?? '');
       toast.info(delivered ? 'New code sent' : 'Mail delivery is not configured', response.message);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Could not resend the code.');

@@ -15,6 +15,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { companyStatusLabel, companyTypeLabel, formatDateTime, formatNumber } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Avatar,
   Badge,
   Body,
@@ -75,7 +76,7 @@ export default function CompanyRegisterScreen() {
       <PageHeader
         title="Companies"
         subtitle={statistics.data ? `${formatNumber(statistics.data.total)} registered in the sector` : 'Loading register…'}
-        onBack={() => router.back()}
+        onBack={safeGoBack}
       />
 
       {statistics.data ? (

@@ -13,14 +13,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { tabsFor, type TabName } from '../../../src/navigation/tabs';
 import { useTheme } from '../../../src/theme/theme';
+import { useLocale } from '../../../src/i18n/context';
 
 export default function TabsLayout() {
   const theme = useTheme();
   const { user } = useAuth();
+  const { translate } = useLocale();
   const visible = new Set(tabsFor(user).map((tab) => tab.name));
 
   const options = (name: TabName, title: string, icon: keyof typeof Ionicons.glyphMap) => ({
-    title,
+    title: translate(title),
     href: visible.has(name) ? undefined : null,
     tabBarIcon: ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={icon} size={size} color={color as string} />,
   });

@@ -11,6 +11,7 @@ import React from 'react';
 import { Image, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTone } from '../../ui/context';
 import { Caption, Overline } from '../../ui/text';
+import { useLocale } from '../../i18n/context';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGO_COLOR = require('../../../assets/brand/logo-color.png');
@@ -28,13 +29,14 @@ export function LogoMark({
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <View style={[{ width: size, height: size }, style]}>
       <Image
         source={mono || theme.isDark ? LOGO_MONO : LOGO_COLOR}
         style={{ width: size, height: size }}
         resizeMode="contain"
-        accessibilityLabel="FEMS emblem"
+        accessibilityLabel={translate('FEMS emblem')}
       />
     </View>
   );

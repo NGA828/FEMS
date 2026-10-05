@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Button,
   Caption,
@@ -55,7 +56,7 @@ export default function NewPaymentScreen() {
   const language = user?.preferredLanguage === 'fr' ? 'fr' : 'en';
 
   const provider = usePaymentProvider();
-  const permits = usePermits({ status: 'ACTIVE', limit: 50 });
+  const permits = usePermits({ status: 'PAYMENT_PENDING', limit: 50 });
   const violations = useViolations({ status: 'CONFIRMED', limit: 25 });
   const initiate = useInitiatePayment();
 
@@ -167,7 +168,7 @@ export default function NewPaymentScreen() {
           <Title>New payment</Title>
           <Caption tone="muted">The provider confirms the transaction; FEMS stores what it returns.</Caption>
         </View>
-        <Button label="Cancel" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button label="Cancel" variant="ghost" size="sm" onPress={safeGoBack} />
       </Row>
 
       {provider.data?.provider === 'SIMULATOR' ? (

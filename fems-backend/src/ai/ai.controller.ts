@@ -23,7 +23,7 @@ export class AiController {
   @ApiOperation({
     summary: 'AI module status for the caller',
     description:
-      'Reports which AI provider is configured (Groq by default, OpenRouter optional, or none), which deterministic rules exist, what the caller may do and how many alerts are waiting for a review.',
+      'Reports whether Groq is configured (or the local deterministic rule engine is active), which rules exist, what the caller may do and how many alerts are waiting for review.',
   })
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.ai.status(user);

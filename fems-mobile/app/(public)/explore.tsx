@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForests, useMediaCovers, useProtectedAreas } from '../../src/api/queries';
 import { useTheme } from '../../src/theme/theme';
 import { MediaCover } from '../../src/components/media/MediaCover';
-import { Badge, Body, Caption, Chip, EmptyState, ErrorState, PageHeader, Row, SearchBar, SegmentedControl, SkeletonList } from '../../src/ui';
+import { safeGoBack, Badge, Body, Caption, Chip, EmptyState, ErrorState, PageHeader, Row, SearchBar, SegmentedControl, SkeletonList } from '../../src/ui';
 import { forestTypeLabel, formatArea, protectedAreaTypeLabel } from '../../src/lib/format';
 import type { Forest, MediaDescriptor, ProtectedArea } from '../../src/api/types';
 
@@ -50,7 +50,7 @@ export default function ExploreScreen() {
             <PageHeader
               title="Explore the forest estate"
               subtitle="Public catalogue of classified forests and protected areas"
-              onBack={() => router.back()}
+              onBack={safeGoBack}
               compact
             />
             <SegmentedControl

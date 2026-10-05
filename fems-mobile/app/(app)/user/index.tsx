@@ -17,6 +17,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatRelative, humanize, userStatusLabel } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Avatar,
   Badge,
   Body,
@@ -140,7 +141,7 @@ export default function UserDirectoryScreen() {
       <PageHeader
         title="Accounts"
         subtitle="People with access to FEMS"
-        onBack={() => router.back()}
+        onBack={safeGoBack}
         right={canCreate ? <Button label={formOpen ? 'Close' : 'Invite'} icon={formOpen ? 'close-outline' : 'person-add-outline'} size="sm" onPress={() => setFormOpen(!formOpen)} /> : undefined}
       />
 

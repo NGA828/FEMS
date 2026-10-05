@@ -23,6 +23,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../theme/tokens';
 import { useTone } from './context';
+import { useLocale } from '../i18n/context';
 import { Body, Caption, Overline, Tiny } from './text';
 import { Divider, Row } from './surface';
 
@@ -55,6 +56,7 @@ export function Button({
   accessibilityHint,
 }: ButtonProps) {
   const theme = useTone();
+  const { translate } = useLocale();
   const palette = {
     primary: { bg: theme.colors.primary, fg: theme.colors.onPrimary, border: theme.colors.primary },
     accent: { bg: theme.colors.accent, fg: theme.colors.onAccent, border: theme.colors.accent },
@@ -72,8 +74,8 @@ export function Button({
       onPress={isBlocked ? undefined : onPress}
       accessibilityRole="button"
       accessibilityState={{ disabled: isBlocked, busy: loading }}
-      accessibilityLabel={label}
-      accessibilityHint={accessibilityHint}
+      accessibilityLabel={translate(label)}
+      accessibilityHint={accessibilityHint ? translate(accessibilityHint) : undefined}
       style={({ pressed }) => [
         {
           height: heights[size],
@@ -118,6 +120,7 @@ export function IconButton({
   badge?: number;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const color = {
     default: theme.colors.text,
     primary: theme.colors.primary,
@@ -129,7 +132,7 @@ export function IconButton({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={translate(label)}
       hitSlop={10}
       style={({ pressed }) => [
         {
@@ -179,6 +182,7 @@ export function Chip({
   tone?: 'default' | 'accent' | 'danger';
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const accent = tone === 'accent' ? theme.colors.accent : tone === 'danger' ? theme.colors.danger : theme.colors.primary;
   return (
     <Pressable
@@ -186,7 +190,7 @@ export function Chip({
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityState={{ selected }}
-      accessibilityLabel={label}
+      accessibilityLabel={translate(label)}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -218,6 +222,7 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <View
       style={{
@@ -268,6 +273,7 @@ export function SearchBar({
   autoFocus?: boolean;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <View
       style={{
@@ -287,15 +293,20 @@ export function SearchBar({
         value={value}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmit}
-        placeholder={placeholder}
+        placeholder={translate(placeholder)}
         placeholderTextColor={theme.colors.textFaint}
         autoFocus={autoFocus}
         returnKeyType="search"
-        accessibilityLabel={placeholder}
+        accessibilityLabel={translate(placeholder)}
         style={{ flex: 1, color: theme.colors.text, fontSize: 15, paddingVertical: 0 }}
       />
       {value.length > 0 ? (
-        <Pressable onPress={() => onChangeText('')} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8}>
+        <Pressable
+          onPress={() => onChangeText('')}
+          accessibilityRole="button"
+          accessibilityLabel={translate('Clear search')}
+          hitSlop={8}
+        >
           <Ionicons name="close-circle" size={17} color={theme.colors.textFaint} />
         </Pressable>
       ) : null}
@@ -315,6 +326,7 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
 
 export function TextField({ label, error, help, required, icon, suffix, style, ...rest }: TextFieldProps) {
   const theme = useTone();
+  const { translate } = useLocale();
   const [focused, setFocused] = useState(false);
   const borderColor = error ? theme.colors.danger : focused ? theme.colors.primary : theme.colors.border;
 
@@ -339,8 +351,9 @@ export function TextField({ label, error, help, required, icon, suffix, style, .
       >
         {icon ? <Ionicons name={icon} size={17} color={theme.colors.textMuted} /> : null}
         <TextInput
+          placeholder={typeof rest.placeholder === 'string' ? translate(rest.placeholder) : rest.placeholder}
           placeholderTextColor={theme.colors.textFaint}
-          accessibilityLabel={label}
+          accessibilityLabel={translate(label)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={{
@@ -392,6 +405,7 @@ export function SelectSheet<T extends string>({
   disabled?: boolean;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
 
@@ -404,7 +418,7 @@ export function SelectSheet<T extends string>({
       <Pressable
         onPress={disabled ? undefined : () => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
+        accessibilityLabel={translate(`${label}: ${selected?.label ?? placeholder}`)}
         accessibilityState={{ disabled }}
         style={{
           flexDirection: 'row',
@@ -440,7 +454,11 @@ export function SelectSheet<T extends string>({
         >
           <Row justify="space-between" style={{ padding: spacing.lg }}>
             <Body style={{ fontWeight: '700' }}>{label}</Body>
-            <Pressable onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable
+              onPress={() => setOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={translate('Close')}
+            >
               <Ionicons name="close" size={20} color={theme.colors.textMuted} />
             </Pressable>
           </Row>
@@ -500,6 +518,7 @@ export function ChecklistToggle({
   onChange: (value: boolean) => void;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   return (
     <Row justify="space-between" align="center" style={{ paddingVertical: spacing.sm, gap: spacing.md }}>
       <View style={{ flex: 1 }}>
@@ -511,7 +530,7 @@ export function ChecklistToggle({
         onValueChange={onChange}
         trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
         thumbColor={theme.colors.surface}
-        accessibilityLabel={label}
+        accessibilityLabel={translate(label)}
       />
     </Row>
   );
@@ -538,6 +557,7 @@ export function NumberStepper({
   error?: string | null;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const clamp = (next: number) => Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, Number(next.toFixed(2))));
   return (
     <View style={{ marginBottom: spacing.md }}>
@@ -546,7 +566,7 @@ export function NumberStepper({
         <Pressable
           onPress={() => onChange(clamp(value - step))}
           accessibilityRole="button"
-          accessibilityLabel={`Decrease ${label}`}
+          accessibilityLabel={translate(`Decrease ${label}`)}
           style={{
             width: 46,
             height: 46,
@@ -579,7 +599,7 @@ export function NumberStepper({
         <Pressable
           onPress={() => onChange(clamp(value + step))}
           accessibilityRole="button"
-          accessibilityLabel={`Increase ${label}`}
+          accessibilityLabel={translate(`Increase ${label}`)}
           style={{
             width: 46,
             height: 46,

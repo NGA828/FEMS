@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { GisFeatureType, GpsSource } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -17,9 +17,16 @@ import {
   Min,
 } from 'class-validator';
 
+function splitFeatureTypes(value: unknown): unknown {
+  const values = Array.isArray(value) ? value : [value];
+  if (!values.every((entry) => typeof entry === 'string')) return value;
+  return values.flatMap((entry) => (entry as string).split(',').map((item) => item.trim()).filter(Boolean));
+}
+
 export class MapQueryDto {
-  @ApiPropertyOptional({ enum: GisFeatureType, isArray: true })
+  @ApiPropertyOptional({ enum: GisFeatureType, isArray: true, description: 'Comma-separated or repeated GIS feature types' })
   @IsOptional()
+  @Transform(({ value }) => splitFeatureTypes(value))
   @IsArray()
   @IsEnum(GisFeatureType, { each: true })
   featureTypes?: GisFeatureType[];
@@ -81,8 +88,9 @@ export class NearbyQueryDto {
   @Max(500)
   radiusKm: number = 50;
 
-  @ApiPropertyOptional({ enum: GisFeatureType, isArray: true })
+  @ApiPropertyOptional({ enum: GisFeatureType, isArray: true, description: 'Comma-separated or repeated GIS feature types' })
   @IsOptional()
+  @Transform(({ value }) => splitFeatureTypes(value))
   @IsArray()
   @IsEnum(GisFeatureType, { each: true })
   featureTypes?: GisFeatureType[];

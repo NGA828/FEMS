@@ -17,10 +17,12 @@ import { ApiError, fieldErrors } from '../../src/api/client';
 import { authApi, type RegisterPayload } from '../../src/api/endpoints';
 import { useTheme } from '../../src/theme/theme';
 import {
+  safeGoBack,
   Body,
   Button,
   Caption,
   Chip,
+  Mono,
   Notice,
   Overline,
   Row,
@@ -132,7 +134,7 @@ export default function RegisterScreen() {
       const response = await authApi.register(payload);
       setResult({
         delivered: response.verification.emailDelivery === 'SENT',
-        code: response.verification.developmentCode,
+        code: response.verification.emailDelivery === 'SENT' ? undefined : response.verification.developmentCode,
         message: response.verification.emailDeliveryMessage,
       });
       toast.success('Account created', response.verification.emailDeliveryMessage);
@@ -168,9 +170,11 @@ export default function RegisterScreen() {
             }}
           >
             <Overline>Verification code</Overline>
-            <Body style={{ fontSize: 26, fontWeight: '800', letterSpacing: 6 }}>{result.code}</Body>
+            <Mono selectable style={{ fontSize: 16, fontWeight: '800', letterSpacing: 1 }}>
+              {result.code}
+            </Mono>
             <Caption tone="muted">
-              SMTP is not configured on this deployment, so the API returned the code instead of hiding it. In production the code is only sent by email.
+              Email delivery failed, so the API returned this code for development testing. Production accounts receive codes only by email.
             </Caption>
           </View>
         ) : null}
@@ -188,7 +192,7 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
+        <Pressable onPress={safeGoBack} accessibilityRole="button" accessibilityLabel="Back" style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
           <Caption tone="primary" style={{ fontWeight: '700' }}>
             ‹ Back
           </Caption>

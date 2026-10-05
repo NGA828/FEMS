@@ -11,22 +11,20 @@
 // one actionable line instead of a Prisma stack trace.
 import { appConfig } from '../../src/config/configuration';
 
+// Configuration is cached on its first read, so set the E2E throttle ceiling
+// before calling appConfig() or importing the application module.
+process.env.NODE_ENV = process.env.NODE_ENV ?? 'development';
+process.env.FEMS_ENV = process.env.FEMS_ENV ?? 'development';
+process.env.FEMS_LOG_LEVEL = process.env.FEMS_LOG_LEVEL ?? 'error';
+// E2E flows rely on development codes and must never send email externally.
+process.env.EMAIL_PROVIDER = 'none';
+const throttleLimit = process.env.E2E_THROTTLE_LIMIT ?? '5000';
+process.env.THROTTLE_LIMIT = throttleLimit;
+process.env.THROTTLE_AUTH_LIMIT = throttleLimit;
+process.env.THROTTLE_AUTH_STRICT_LIMIT = throttleLimit;
+
 if (!appConfig().databaseUrl) {
   throw new Error(
     'DATABASE_URL is not configured. Run `npm run dev:setup` (it creates fems-backend/.env and starts MySQL), then `npm run db:seed`.',
   );
 }
-
-process.env.NODE_ENV = process.env.NODE_ENV ?? 'development';
-process.env.FEMS_ENV = process.env.FEMS_ENV ?? 'development';
-// Keep the console readable: the suites assert on responses, not on log output.
-process.env.FEMS_LOG_LEVEL = process.env.FEMS_LOG_LEVEL ?? 'error';
-
-// The flow suites sign in as eight different roles and re-authenticate between
-// steps. The guards stay exactly as they are in production (the throttler is
-// still active) — only the ceiling is raised, so a burst of legitimate requests
-// is not mistaken for abuse. The production defaults remain 120/min overall and
-// 10/min on the auth routes.
-process.env.THROTTLE_LIMIT = process.env.E2E_THROTTLE_LIMIT ?? '5000';
-process.env.THROTTLE_AUTH_LIMIT = process.env.E2E_THROTTLE_LIMIT ?? '5000';
-process.env.THROTTLE_AUTH_STRICT_LIMIT = process.env.E2E_THROTTLE_LIMIT ?? '5000';

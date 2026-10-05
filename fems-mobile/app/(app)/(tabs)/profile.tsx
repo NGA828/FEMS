@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
-  const { user, permissions, roles, signOut, refreshUser, hasPermission, devWarnings, primaryRole } = useAuth();
+  const { user, permissions, roles, signOut, refreshUser, setUser, hasPermission, devWarnings, primaryRole } = useAuth();
   const { preference, setPreference, mode } = useThemeController();
 
   const sessions = useSessions();
@@ -125,8 +125,8 @@ export default function ProfileScreen() {
 
   const changeLanguage = async (next: 'en' | 'fr') => {
     try {
-      await authApi.updateProfile({ preferredLanguage: next });
-      await refreshUser();
+      const updated = await authApi.updateProfile({ preferredLanguage: next });
+      if (user) setUser({ ...user, ...updated });
       toast.info(next === 'fr' ? 'Langue : français' : 'Language: English');
     } catch (caught) {
       toast.error('Could not change the language', caught instanceof ApiError ? caught.message : undefined);

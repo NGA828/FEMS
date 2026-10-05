@@ -78,7 +78,7 @@ extra roles the diagram does not show: `FOREST_INSPECTOR`, `FIELD_OPERATOR`).
 | System | Status | Notes |
 |---|---|---|
 | Campay API | ✅ | Real HTTP client + webhook; refuses to fake a result when unconfigured (simulator is explicitly labelled). |
-| Groq / OpenRouter | ✅ | Real clients behind one provider-neutral `LlmClient`. **Groq (free tier) is the default since 2026-10-01** (`AI_PROVIDER=groq`, `GROQ_API_KEY`, default model `llama-3.3-70b-versatile`); `AI_PROVIDER=openrouter` selects OpenRouter and `AI_PROVIDER=none` disables the model entirely. Falls back to the deterministic rule engine, never to invented text. |
+| Groq AI | ✅ | Groq is the only external model provider (`GROQ_API_KEY`, default model `openai/gpt-oss-120b`). `AI_PROVIDER=none` disables model calls. The deterministic rule engine always computes findings and remains available as the no-key fallback. |
 | GIS map | ✅ | `MAPS_TILE_URL` + `/gis/*`; Leaflet on web, `react-native-maps` on device. |
 | Authentication (`<<include>>` on every use case) | ✅ | Global `JwtAuthGuard` + role/permission guards; public routes are opt-in. |
 

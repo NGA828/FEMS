@@ -30,6 +30,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { useDevicePosition, accuracyBand } from '../../../src/hooks/useDevicePosition';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   Body,
   Button,
@@ -251,7 +252,7 @@ export default function InspectionDetailScreen() {
         <RefreshControl refreshing={inspection.isRefetching} onRefresh={() => inspection.refetch()} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />
       }
     >
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
+      <Pressable onPress={safeGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
         <Caption tone="primary" style={{ fontWeight: '700' }}>
           ‹ Back
         </Caption>

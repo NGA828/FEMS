@@ -49,10 +49,12 @@ export class ResponseEnvelopeInterceptor<T> implements NestInterceptor<T, ApiEnv
           return payload;
         }
         if (isPaginated(payload)) {
+          const { items, meta, ...extra } = payload as PaginatedPayload<unknown> & Record<string, unknown>;
           return {
             success: true as const,
-            data: payload.items as T,
-            meta: payload.meta,
+            data: items as T,
+            meta,
+            ...extra,
             timestamp: new Date().toISOString(),
           };
         }

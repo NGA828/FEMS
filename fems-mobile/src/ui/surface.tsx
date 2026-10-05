@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '../theme/tokens';
 import { useTone } from './context';
 import { Body, Caption, Heading, Overline } from './text';
+import { useLocale } from '../i18n/context';
 
 export interface ScreenProps extends ViewProps {
   /** Adds the bottom tab bar height to the padding so content is never hidden. */
@@ -310,6 +311,7 @@ export function PageHeader({
   compact?: boolean;
 }) {
   const theme = useTone();
+  const { translate } = useLocale();
   const { width } = useWindowDimensions();
   const isNarrow = width < 375;
   return (
@@ -328,7 +330,7 @@ export function PageHeader({
           <Pressable
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={translate('Go back')}
             hitSlop={10}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs, alignSelf: 'flex-start', marginTop: -2 }}
           >

@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_DEFAULT, UrlTile, type Region } from 'react-native-maps';
 import { DEFAULT_TILE_URL, deltasForZoom, type MapCanvasProps, type MapPoint } from './types';
+import { useLocale } from '../../i18n/context';
 
 export function MapCanvas({
   center,
@@ -20,6 +21,7 @@ export function MapCanvas({
   style,
   tone = 'dark',
 }: MapCanvasProps & { tone?: 'light' | 'dark' }) {
+  const { translate } = useLocale();
   const mapRef = useRef<MapView | null>(null);
   const { latitudeDelta, longitudeDelta } = useMemo(() => deltasForZoom(zoom), [zoom]);
 
@@ -65,11 +67,11 @@ export function MapCanvas({
             />
             <Marker
               coordinate={{ latitude: userPosition.latitude, longitude: userPosition.longitude }}
-              title="Your position"
+              title={translate('Your position')}
               description={
                 userPosition.accuracyM
-                  ? `Accuracy ±${Math.round(userPosition.accuracyM)} m, captured by this device`
-                  : 'Captured by this device'
+                  ? `${translate('Accuracy')} ±${Math.round(userPosition.accuracyM)} m, ${translate('captured by this device')}`
+                  : translate('Captured by this device')
               }
               pinColor="#1D6FA5"
               zIndex={1000}

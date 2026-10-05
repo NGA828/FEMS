@@ -16,6 +16,7 @@ import { useAuth } from '../../../src/auth/AuthProvider';
 import { formatDateTime, formatNumber, formatRelative } from '../../../src/lib/format';
 import { useTheme } from '../../../src/theme/theme';
 import {
+  safeGoBack,
   Badge,
   BarChart,
   Body,
@@ -57,7 +58,7 @@ export default function SystemMonitoringScreen() {
   if (!allowed) {
     return (
       <Screen>
-        <PageHeader title="System monitoring" onBack={() => router.back()} />
+        <PageHeader title="System monitoring" onBack={safeGoBack} />
         <EmptyState
           icon="lock-closed-outline"
           title="Not available for your role"
@@ -70,7 +71,7 @@ export default function SystemMonitoringScreen() {
   if (metrics.isLoading && !metrics.data) {
     return (
       <Screen>
-        <PageHeader title="System monitoring" onBack={() => router.back()} />
+        <PageHeader title="System monitoring" onBack={safeGoBack} />
         <SkeletonList rows={6} />
       </Screen>
     );
@@ -79,7 +80,7 @@ export default function SystemMonitoringScreen() {
   if (metrics.isError || !metrics.data) {
     return (
       <Screen>
-        <PageHeader title="System monitoring" onBack={() => router.back()} />
+        <PageHeader title="System monitoring" onBack={safeGoBack} />
         <ErrorState error={metrics.error} onRetry={() => metrics.refetch()} title="The metrics could not be read" />
       </Screen>
     );
@@ -94,7 +95,7 @@ export default function SystemMonitoringScreen() {
       <PageHeader
         title="System monitoring"
         subtitle={`${data.environment} · measured since ${formatRelative(data.process.startedAt, 'en')}`}
-        onBack={() => router.back()}
+        onBack={safeGoBack}
       />
 
       {verdict ? (

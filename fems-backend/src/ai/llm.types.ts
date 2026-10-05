@@ -2,13 +2,11 @@
  * Provider-neutral contract for the language model behind the AI module.
  *
  * FEMS treats the model as an interchangeable, optional accessory: the
- * deterministic rule engine produces the findings either way, and the model
- * only writes the narrative around them. Keeping the contract here means a
- * provider can be swapped (Groq, OpenRouter, none) without a single change in
- * `AiService`.
+ * deterministic rule engine produces the findings either way, and Groq only
+ * writes the narrative around them. No API key is exposed to mobile clients.
  */
 
-export type AiProviderKey = 'groq' | 'openrouter' | 'none';
+export type AiProviderKey = 'groq' | 'none';
 
 export interface LlmRequest {
   /** The user turn: the question plus the data the caller is allowed to see. */
@@ -33,7 +31,7 @@ export interface LlmResponse {
 
 export interface LlmDescription {
   /** Mirrors the `AiProvider` enum stored on analyses, alerts and messages. */
-  provider: 'GROQ' | 'OPENROUTER' | 'LOCAL_RULE_ENGINE';
+  provider: 'GROQ' | 'LOCAL_RULE_ENGINE';
   configured: boolean;
   model: string;
   baseUrl: string;
@@ -48,7 +46,7 @@ export interface LlmDescription {
 export class AiNotConfiguredError extends Error {
   readonly code = 'AI_NOT_CONFIGURED';
 
-  constructor(message = 'No AI provider is configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY) to enable it.') {
+  constructor(message = 'No AI provider is configured. Set GROQ_API_KEY to enable the Groq model.') {
     super(message);
     this.name = 'AiNotConfiguredError';
   }

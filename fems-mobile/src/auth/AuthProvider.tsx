@@ -16,9 +16,13 @@ import { authApi } from '../api/endpoints';
 import { primaryRoleName } from '../navigation/tabs';
 import type { AuthUser, DirectoryUser } from '../api/types';
 import { tokenStore } from './token-store';
+import { LocaleContext } from '../i18n/context';
+import { translateAppText, type AppLanguage } from '../i18n/translate';
 
 interface AuthContextValue {
   user: AuthUser | null;
+  language: AppLanguage;
+  translate: (value: string) => string;
   status: 'loading' | 'authenticated' | 'anonymous';
   permissions: string[];
   /** True when the app has no tokens and the API requires them. */
@@ -51,6 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'anonymous'>('loading');
   const bootstrapped = useRef(false);
+  const language: AppLanguage = user?.preferredLanguage === 'fr' ? 'fr' : 'en';
+  const translate = useCallback((value: string) => translateAppText(value, language), [language]);
 
   const clearSession = useCallback(() => {
     setUserState(null);
@@ -158,6 +164,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return {
       user,
+      language,
+      translate,
       status,
       permissions,
       roles,
@@ -180,9 +188,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? []
         : ['Web preview: tokens are kept in browser storage. Release builds use the device keystore.'],
     };
-  }, [user, status, signIn, signOut, loadProfile]);
+  }, [user, language, translate, status, signIn, signOut, loadProfile]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <LocaleContext.Provider value={{ language, translate }}>{children}</LocaleContext.Provider>
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

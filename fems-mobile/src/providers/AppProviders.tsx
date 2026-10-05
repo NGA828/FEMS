@@ -2,9 +2,8 @@
  * Application providers.
  *
  * Ordering matters: the theme is outermost so every provider below can style
- * itself, the toast and confirm providers sit above the query client so mutation
- * errors can be reported, and the auth provider wraps everything that needs a
- * session.
+ * itself, the query client is available to authentication, and authentication
+ * provides the account language to every screen and shared UI surface.
  */
 import React, { useEffect, useMemo } from 'react';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
@@ -69,9 +68,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <SafeAreaProvider>
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
-            <ThemedProviders>
-              <AuthProvider>{children}</AuthProvider>
-            </ThemedProviders>
+            <AuthProvider>
+              <ThemedProviders>{children}</ThemedProviders>
+            </AuthProvider>
           </QueryClientProvider>
         </ThemeProvider>
       </SafeAreaProvider>
